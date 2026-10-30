@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Autopilot Applier",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Autofills internship applications from the profile you built on your Autopilot dashboard. Never submits for you.",
-  "permissions": ["storage", "tabs", "activeTab", "scripting"],
+  "permissions": ["storage", "tabs", "activeTab", "scripting", "debugger"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": {

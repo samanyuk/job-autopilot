@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, type JobDescription, type JobStatusEntry, type Profile, type ResumeFile, type Settings } from "./types";
+import { DEFAULT_SETTINGS, type JobDescription, type JobStatusEntry, type Profile, type QuestionBank, type ResumeFile, type SavedAnswers, type Settings } from "./types";
 
 const KEYS = {
   profile: "autopilot.profile",
@@ -7,6 +7,8 @@ const KEYS = {
   descriptions: "autopilot.descriptions",
   filters: "autopilot.filters",
   settings: "autopilot.settings",
+  qbank: "autopilot.qbank",
+  answers: "autopilot.answers",
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -34,6 +36,10 @@ export const storage = {
     if (p && !p.eeo) p.eeo = { gender: "", hispanic: "", race: "", veteran: "", disability: "" };
     return p;
   },
+  getQbank: () => read<QuestionBank>(KEYS.qbank, {}),
+  setQbank: (q: QuestionBank) => write(KEYS.qbank, q),
+  getAnswers: () => read<SavedAnswers>(KEYS.answers, {}),
+  setAnswers: (a: SavedAnswers) => write(KEYS.answers, a),
   getSettings: () => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(KEYS.settings, {}) }),
   setSettings: (s: Settings) => write(KEYS.settings, s),
   setProfile: (p: Profile | null) => write(KEYS.profile, p),

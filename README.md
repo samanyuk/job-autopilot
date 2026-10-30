@@ -34,19 +34,21 @@ When I send you an updated zip later, replace the `extension/` folder and hit th
 
 ## Use it
 
-1. **Profile tab** → upload your resume (PDF or DOCX). Check the parsed fields, especially phone, address, graduation date, and the yes/no screening answers.
+1. **Profile tab** → upload your resume (PDF or DOCX). Check the parsed fields, especially phone, address, graduation date, and that every experience has a start date (Workday requires one).
 2. Fill in **Voluntary self-identification** (gender, Hispanic/Latino, race, veteran, disability). These get submitted on every application; leave one blank and Autopilot asks you on the page instead.
 3. **Autopilot settings** (same tab):
-   - **Claude API key** — lets Autopilot write answers to open-ended questions ("Why do you want to work here?") and pick options it can't map from your profile. Get one at console.anthropic.com (needs a few dollars of credit; roughly 1–3¢ per application). Without it, those questions pop up as a card for you to answer.
-   - **Application account password** — Workday makes you create an account per company. With this set, Autopilot signs up or signs in with your email + this password without asking.
-4. **Jobs tab** → filter by posting age, category, location, ATS. Sort by **Best match** once your resume is loaded.
-5. Click a card → read the qualifications and score → **Yes, apply & autofill** or **Skip**.
-6. The application opens in a new tab, the page dims, and Autopilot takes over: accepts the cookie banner, clicks Apply, creates/signs into the account, uploads your resume, fills every page, clicks Next, and at the end shows a **Submit?** card. You click Submit; it presses the site's button and tells the dashboard.
-   - When it can't answer something, a card appears with the form's options, a text box, and "I'll do it on the page". Answers you type can be remembered for later applications.
+   - **Claude API key** — lets Autopilot write answers to open-ended questions ("Why do you want to work here?"). Get one at console.anthropic.com. Without it those questions come to you in one card per page.
+   - **Application account password** — used for Workday-style per-company accounts. Leave it blank and Autopilot generates a strong one the first time it needs it and saves it here. Each company's account is remembered, so the next application at that company signs in instead of creating another.
+4. **Questions seen in applications** (same tab) — every question Autopilot couldn't answer from your profile, most frequent first. Set an answer and it's used automatically from then on (also matches slightly different wordings of the same question).
+5. **Jobs tab** → filter, sort by **Best match**, click a card → **Yes, apply & autofill**.
+6. The application opens in a new tab, the page dims, and Autopilot takes over: cookie banner, Apply, account, resume, every page, Next, and a final **Submit?** card. Things it fills on Workday specifically: My Information (source, previous-employee, country, name, address, state, phone type/code/number), My Experience (one entry per job incl. month/year dates and "I currently work here", education with school/degree/field/GPA/years, languages with proficiency, skills, websites, resume), Application Questions (dropdowns, dates, yes/no), Voluntary Disclosures, Self Identify (disability + name + date).
+   - Yes/No and common dropdown questions get a sensible default marked `guess` in the log (work authorization → Yes, sponsorship → No, year in school from your grad date, office nearest your city, …). Criminal-history / termination / clearance questions are never guessed.
+   - When it can't answer something required, one card per page lists the open questions with the form's options; blank = skip. Optional unknowns are left blank silently.
    - **Pause** (or Esc) hands you the page; **Resume** gives it back. **edit** on any row changes what was typed. **Stop** ends the takeover.
+   - If a site's date boxes reject synthetic input, Autopilot types them with real keystrokes through Chrome's debugger API; Chrome shows an "Autopilot Applier started debugging this browser" bar while it does. That's expected.
 7. It still can't do: CAPTCHAs, email verification codes, or anything behind a login it doesn't have — it pauses and asks when it hits one.
 
-You can also click the extension's toolbar icon on *any* application page to run it there, even if you didn't open it from the dashboard.
+You can also click the extension's toolbar icon on *any* application page to run it there.
 
 ## Try the extension safely
 
@@ -77,8 +79,9 @@ lib/
 extension/
   manifest.json, background.js (opens tabs, stores profile)
   bridge.js            runs on the dashboard, relays messages
-  rules.js             label → profile-field rules, EEO/skip lists
-  content.js           filler engine + live panel
+  rules.js             label → profile-field rules, EEO/skip lists, default-answer heuristics
+  workday.js           Workday adapter: auth, My Information, My Experience, disclosures, self-identify, date typing
+  content.js           filler engine, takeover overlay, cards, question bank, Submit confirmation
 ```
 
 ## Privacy

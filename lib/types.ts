@@ -74,6 +74,8 @@ export interface Profile {
   howHeard: string;
   rawText: string;
   eeo: Eeo;
+  languages?: Language[];
+  availableFrom?: string; // MM/YYYY
 }
 
 /** Voluntary self-identification answers. Canonical values; the extension maps them to each form's wording. */
@@ -110,6 +112,27 @@ export const DEFAULT_SETTINGS: Settings = {
   fillEeo: true,
   autoAdvance: true,
 };
+
+/** A question met on an application, recorded by the extension. */
+export interface QuestionRecord {
+  question: string;
+  options: string[];
+  answer: string;
+  source: string; // saved | ai | guess | you | skipped | manual
+  count: number;
+  lastSeen: number;
+  companies: string[];
+}
+
+export type QuestionBank = Record<string, QuestionRecord>;
+/** Your standing answers, keyed the same way as the question bank. */
+export type SavedAnswers = Record<string, string>;
+
+export interface Language {
+  name: string;
+  fluent: boolean;
+  level?: string;
+}
 
 export interface ResumeFile {
   name: string;

@@ -2,140 +2,356 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>My Experience — Mock Workday</title>
+  <title>Software Engineering Intern — Mock Workday</title>
   <style>
-    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 720px; margin: 40px auto; color: #222; }
-    h2 { font-size: 18px; margin-top: 28px; }
-    .panel { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 40px auto; color: #222; }
+    h1 { font-size: 22px; } h2 { font-size: 17px; margin-top: 26px; }
+    .page { display: none; } .page.on { display: block; }
+    .panel { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin: 10px 0; position: relative; }
     label { display: block; font-size: 12px; margin: 10px 0 3px; font-weight: 600; }
-    input[type=text], textarea { width: 100%; padding: 7px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+    input[type=text], input[type=email], input[type=password], textarea { width: 100%; padding: 7px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
     .date { display: flex; gap: 6px; } .date input { width: 60px; }
     button { padding: 7px 14px; border-radius: 999px; border: 1px solid #333; background: #fff; cursor: pointer; margin-top: 8px; }
-    ul[role=listbox] { list-style: none; padding: 4px; margin: 0; border: 1px solid #999; background: #fff; position: absolute; width: 240px; }
+    button[aria-haspopup=listbox] { border-radius: 5px; text-align: left; width: 100%; }
+    ul[role=listbox] { list-style: none; padding: 4px; margin: 0; border: 1px solid #999; background: #fff; position: absolute; z-index: 5; width: 260px; }
     ul[role=listbox] li { padding: 6px; cursor: pointer; } ul[role=listbox] li:hover { background: #eee; }
-    .hidden { display: none; }
     .pill { display: inline-block; background: #eee; border-radius: 999px; padding: 2px 10px; margin: 2px; font-size: 12px; }
+    .err { color: #b00; font-size: 12px; }
+    .nav { margin-top: 30px; display: flex; gap: 10px; }
+    .hint { font-size: 12px; color: #777; }
+    fieldset { border: 1px solid #ddd; border-radius: 8px; margin-top: 12px; padding: 10px 14px; } legend { font-size: 12px; font-weight: 600; }
+    fieldset label { display: inline; font-weight: 400; margin-right: 14px; } fieldset input { width: auto; }
+    #banner { position: fixed; bottom: 0; left: 0; right: 0; background: #222; color: #fff; padding: 12px; display: flex; gap: 12px; align-items: center; justify-content: center; }
+    #banner button { margin: 0; background: #fff; }
   </style>
 </head>
 <body>
-  <h1>My Experience</h1>
-  <p>Mock of Workday's experience page, using the same data-automation-ids.</p>
+  <div id="banner">This site uses cookies. <button type="button" data-automation-id="legalNoticeAcceptButton" onclick="document.getElementById('banner').remove()">Accept Cookies</button></div>
 
-  <h2>Work Experience</h2>
-  <div data-automation-id="workExperienceSection">
-    <div id="we-list"></div>
-    <button type="button" data-automation-id="Add">Add</button>
-  </div>
+  <!-- 0: posting -->
+  <section class="page on" data-page="posting">
+    <h1>Software Engineering Intern (Summer 2027)</h1>
+    <p class="hint">Mock of a Workday application, using Workday's data-automation-ids. Nothing is sent anywhere.</p>
+    <p>Acme is hiring interns for the platform team. Requirements: pursuing a BS in CS, Python or TypeScript, Git.</p>
+    <a href="#" data-automation-id="adventureButton" onclick="go('applyOptions'); return false;" style="display:inline-block;border:1px solid #333;border-radius:999px;padding:7px 14px;color:#222;text-decoration:none">Apply</a>
+  </section>
 
-  <h2>Education</h2>
-  <div data-automation-id="educationSection">
-    <div id="edu-list"></div>
-    <button type="button" data-automation-id="Add">Add</button>
-  </div>
+  <!-- 1: apply options -->
+  <section class="page" data-page="applyOptions">
+    <h1>Start Your Application</h1>
+    <button type="button" data-automation-id="autofillWithResume" onclick="go('createAccount')">Autofill with Resume</button>
+    <button type="button" data-automation-id="applyManually" onclick="go('createAccount')">Apply Manually</button>
+    <button type="button" data-automation-id="useMyLastApplication" onclick="go('createAccount')">Use My Last Application</button>
+  </section>
 
-  <h2>Websites</h2>
-  <div data-automation-id="websiteSection">
-    <div id="web-list"></div>
-    <button type="button" data-automation-id="Add">Add</button>
-  </div>
+  <!-- 2: create account -->
+  <section class="page" data-page="createAccount">
+    <h1>Create Account</h1>
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <label>Email Address *</label><input type="text" data-automation-id="email" />
+    <label>Password *</label><input type="password" data-automation-id="password" />
+    <label>Verify New Password *</label><input type="password" data-automation-id="verifyPassword" />
+    <label style="font-weight:400"><input type="checkbox" data-automation-id="createAccountCheckbox" style="width:auto" /> I agree to the Privacy Statement and Terms</label>
+    <div data-automation-id="click_filter"><button type="button" data-automation-id="createAccountSubmitButton" onclick="createAccount()">Create Account</button></div>
+    <p class="hint">Already have an account? <a href="#" data-automation-id="signInLink" onclick="go('signIn'); return false;">Sign In</a></p>
+  </section>
 
-  <h2>Skills</h2>
-  <div data-automation-id="skillsSection">
-    <div id="skills-pills"></div>
-    <input type="text" data-automation-id="skillsPrompt" data-uxi-widget-type="selectinput" placeholder="Search" />
-  </div>
+  <!-- 2b: sign in -->
+  <section class="page" data-page="signIn">
+    <h1>Sign In</h1>
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <label>Email Address *</label><input type="text" data-automation-id="email" />
+    <label>Password *</label><input type="password" data-automation-id="password" />
+    <div data-automation-id="click_filter"><button type="button" data-automation-id="signInSubmitButton" onclick="signIn()">Sign In</button></div>
+    <p class="hint">Don't have an account yet? <a href="#" data-automation-id="createAccountLink" onclick="go('createAccount'); return false;">Create Account</a></p>
+  </section>
 
-  <h2>Resume/CV</h2>
-  <div data-automation-id="resumeSection">
-    <div data-automation-id="file-upload-drop-zone">
+  <!-- 3: My Information -->
+  <section class="page" data-page="myInfo">
+    <h1>My Information</h1>
+    <div data-automation-id="progressBarActiveStep">My Information</div>
+    <label>How Did You Hear About Us?</label>
+    <div data-automation-id="formField-sourceSection" class="panel"><div id="source-pills"></div><input type="text" data-automation-id="searchBox" data-uxi-widget-type="selectinput" placeholder="Search" id="source" /></div>
+    <fieldset data-automation-id="formField-candidateIsPreviousWorker"><legend>Have you previously been employed by Acme? *</legend>
+      <label><input type="radio" name="prev" id="prev-yes" /> Yes</label><label><input type="radio" name="prev" id="prev-no" /> No</label></fieldset>
+    <label>Country *</label><button type="button" aria-haspopup="listbox" data-automation-id="countryDropdown" id="country">Select One</button>
+    <h2>Legal Name</h2>
+    <label>First Name *</label><input type="text" data-automation-id="legalNameSection_firstName" id="fn" />
+    <label>Last Name *</label><input type="text" data-automation-id="legalNameSection_lastName" id="ln" />
+    <h2>Address</h2>
+    <label>Address Line 1 *</label><input type="text" data-automation-id="addressSection_addressLine1" id="addr" />
+    <label>City *</label><input type="text" data-automation-id="addressSection_city" id="city" />
+    <label>State *</label><button type="button" aria-haspopup="listbox" data-automation-id="addressSection_countryRegion" id="state">Select One</button>
+    <label>Postal Code *</label><input type="text" data-automation-id="addressSection_postalCode" id="zip" />
+    <h2>Phone</h2>
+    <label>Phone Device Type *</label><button type="button" aria-haspopup="listbox" data-automation-id="phone-device-type" id="ptype">Select One</button>
+    <label>Country Phone Code *</label><button type="button" aria-haspopup="listbox" data-automation-id="country-phone-code" id="pcode">Select One</button>
+    <label>Phone Number *</label><input type="text" data-automation-id="phone-number" id="phone" />
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <div class="nav"><button type="button" data-automation-id="bottom-navigation-next-button" onclick="validate('myInfo') && go('myExp')">Save and Continue</button></div>
+  </section>
+
+  <!-- 4: My Experience -->
+  <section class="page" data-page="myExp">
+    <h1>My Experience</h1>
+    <div data-automation-id="progressBarActiveStep">My Experience</div>
+    <h2>Work Experience</h2>
+    <div data-automation-id="workExperienceSection"><div id="we-list"></div><button type="button" data-automation-id="Add Another" onclick="addWE()">Add Another</button></div>
+    <h2>Education</h2>
+    <div data-automation-id="educationSection"><div id="edu-list"></div><button type="button" data-automation-id="Add" onclick="addEdu()">Add</button></div>
+    <h2>Languages</h2>
+    <div data-automation-id="languageSection"><div id="lang-list"></div><button type="button" data-automation-id="Add" onclick="addLang()">Add</button></div>
+    <h2>Skills</h2>
+    <div data-automation-id="skillsSection"><div id="skills-pills"></div><input type="text" data-automation-id="skillsPrompt" data-uxi-widget-type="selectinput" placeholder="Search" /></div>
+    <h2>Resume/CV</h2>
+    <div data-automation-id="resumeSection"><div data-automation-id="file-upload-drop-zone">
       <button type="button" data-automation-id="select-files" onclick="document.querySelector('[data-automation-id=file-upload-input-ref]').click()">Select files</button>
-      <input type="file" data-automation-id="file-upload-input-ref" style="display:none" />
-      <span id="resume-name"></span>
-    </div>
-  </div>
+      <input type="file" data-automation-id="file-upload-input-ref" style="display:none" /><span id="resume-name" class="hint"></span></div></div>
+    <h2>Websites</h2>
+    <div data-automation-id="websiteSection"><div id="web-list"></div><button type="button" data-automation-id="Add" onclick="addWeb()">Add</button></div>
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <div class="nav"><button type="button" data-automation-id="bottom-navigation-back-button" onclick="go('myInfo')">Back</button><button type="button" data-automation-id="bottom-navigation-next-button" onclick="validate('myExp') && go('questions')">Save and Continue</button></div>
+  </section>
 
-  <button type="button" data-automation-id="bottom-navigation-next-button" style="margin-top:30px">Save and Continue</button>
+  <!-- 5: Application Questions -->
+  <section class="page" data-page="questions">
+    <h1>Application Questions</h1>
+    <div data-automation-id="progressBarActiveStep">Application Questions</div>
+    <div class="panel" data-automation-id="formField-q1"><label>Are you legally authorized to work in the United States? *</label><button type="button" aria-haspopup="listbox" data-automation-id="q1" data-options="Yes|No">Select One</button></div>
+    <div class="panel" data-automation-id="formField-q2"><label>Will you now or in the future require sponsorship for employment visa status? *</label><button type="button" aria-haspopup="listbox" data-automation-id="q2" data-options="Yes|No">Select One</button></div>
+    <div class="panel" data-automation-id="formField-q3"><label>What is your expected graduation date? *</label><div class="date" data-automation-id="formField-gradDate"><input type="text" role="spinbutton" data-automation-id="dateSectionMonth-input" placeholder="MM" /><input type="text" role="spinbutton" data-automation-id="dateSectionYear-input" placeholder="YYYY" /></div></div>
+    <div class="panel" data-automation-id="formField-q4"><label>Which office location do you prefer? *</label><button type="button" aria-haspopup="listbox" data-automation-id="q4" data-options="Austin, TX|Santa Clara, CA|Seattle, WA|No Preference">Select One</button></div>
+    <div class="panel" data-automation-id="formField-q5"><label>What is your current academic level? *</label><button type="button" aria-haspopup="listbox" data-automation-id="q5" data-options="Freshman|Sophomore|Junior|Senior|Graduate Student">Select One</button></div>
+    <div class="panel" data-automation-id="formField-q6"><label>Are you a current or former employee of Acme or any of its affiliates? *</label><button type="button" aria-haspopup="listbox" data-automation-id="q6" data-options="Yes|No">Select One</button></div>
+    <div class="panel" data-automation-id="formField-q7"><label>What is your favorite programming language and why? *</label><textarea data-automation-id="q7" rows="3"></textarea></div>
+    <div class="panel" data-automation-id="formField-q8"><label>Are you willing to complete a background check if offered a position? *</label><button type="button" aria-haspopup="listbox" data-automation-id="q8" data-options="Yes|No">Select One</button></div>
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <div class="nav"><button type="button" data-automation-id="bottom-navigation-next-button" onclick="validate('questions') && go('disclosures')">Save and Continue</button></div>
+  </section>
+
+  <!-- 6: Voluntary Disclosures -->
+  <section class="page" data-page="disclosures">
+    <h1>Voluntary Disclosures</h1>
+    <div data-automation-id="progressBarActiveStep">Voluntary Disclosures</div>
+    <label>Gender</label><button type="button" aria-haspopup="listbox" data-automation-id="gender" data-options="Male|Female|I do not wish to answer">Select One</button>
+    <label>Race/Ethnicity</label><button type="button" aria-haspopup="listbox" data-automation-id="ethnicityDropdown" data-options="Hispanic or Latino|White (Not Hispanic or Latino)|Black or African American (Not Hispanic or Latino)|Asian (Not Hispanic or Latino)|Two or More Races (Not Hispanic or Latino)|I do not wish to answer">Select One</button>
+    <label>Veteran Status</label><button type="button" aria-haspopup="listbox" data-automation-id="veteranStatus" data-options="I am not a protected veteran|I identify as one or more of the classifications of a protected veteran|I don't wish to answer">Select One</button>
+    <label style="font-weight:400;margin-top:14px"><input type="checkbox" data-automation-id="agreementCheckbox" style="width:auto" /> I have read and consent to the terms and conditions. *</label>
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <div class="nav"><button type="button" data-automation-id="bottom-navigation-next-button" onclick="validate('disclosures') && go('selfid')">Save and Continue</button></div>
+  </section>
+
+  <!-- 7: Self Identify (disability) -->
+  <section class="page" data-page="selfid">
+    <h1>Self Identify</h1>
+    <div data-automation-id="progressBarActiveStep">Self Identify</div>
+    <p class="hint">Voluntary Self-Identification of Disability (Form CC-305)</p>
+    <label>Language</label><button type="button" aria-haspopup="listbox" data-automation-id="language" data-options="English|Español">English</button>
+    <fieldset><legend>Please check one of the boxes below: *</legend>
+      <label><input type="checkbox" data-automation-id="disabilityYes" /> Yes, I have a disability, or have had one in the past</label><br/>
+      <label><input type="checkbox" data-automation-id="disabilityNo" /> No, I do not have a disability and have not had one in the past</label><br/>
+      <label><input type="checkbox" data-automation-id="disabilityDecline" /> I do not want to answer</label></fieldset>
+    <label>Your Name *</label><input type="text" data-automation-id="name" id="sig-name" />
+    <label>Date *</label><div class="date" data-automation-id="formField-dateSignedOn"><input type="text" role="spinbutton" data-automation-id="dateSectionMonth-input" placeholder="MM" /><input type="text" role="spinbutton" data-automation-id="dateSectionDay-input" placeholder="DD" /><input type="text" role="spinbutton" data-automation-id="dateSectionYear-input" placeholder="YYYY" /></div>
+    <div class="err" data-automation-id="errorMessage" style="display:none"></div>
+    <div class="nav"><button type="button" data-automation-id="bottom-navigation-next-button" onclick="validate('selfid') && go('review')">Save and Continue</button></div>
+  </section>
+
+  <!-- 8: Review -->
+  <section class="page" data-page="review">
+    <h1>Review</h1>
+    <div data-automation-id="progressBarActiveStep">Review</div>
+    <p>Please review your application before submitting.</p>
+    <pre id="review-dump" class="hint"></pre>
+    <div class="nav"><button type="button" data-automation-id="bottom-navigation-back-button" onclick="go('selfid')">Back</button><button type="button" data-automation-id="bottom-navigation-next-button" onclick="go('thanks')">Submit</button></div>
+  </section>
+
+  <section class="page" data-page="thanks">
+    <h1>Thank you for applying!</h1>
+    <p>Your application has been submitted. We'll be in touch.</p>
+  </section>
 
   <script>
-    // Masked date input: accepts digits only, 2 chars for month, 4 for year.
-    function maskedDate(el, len) {
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace') { el.value = el.value.slice(0, -1); e.preventDefault(); return; }
-        if (/^\d$/.test(e.key)) { if (el.value.length < len) el.value += e.key; e.preventDefault(); }
-        else if (e.key.length === 1) e.preventDefault();
+    window.__mock = { accounts: {}, submitted: false, signedIn: false };
+    function go(name) {
+      document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.dataset.page === name));
+      history.replaceState(null, '', '#' + name);
+      if (name === 'review') document.getElementById('review-dump').textContent = JSON.stringify(snapshot(), null, 1);
+      if (name === 'thanks') window.__mock.submitted = true;
+      window.scrollTo(0, 0);
+    }
+    function err(page, msg) {
+      const el = document.querySelector(`[data-page=${page}] [data-automation-id=errorMessage]`);
+      el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none';
+    }
+    const PW_RE = /^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    function createAccount() {
+      const p = document.querySelector('[data-page=createAccount]');
+      const email = p.querySelector('[data-automation-id=email]').value, pw = p.querySelector('[data-automation-id=password]').value, v = p.querySelector('[data-automation-id=verifyPassword]').value;
+      if (!email.includes('@')) return err('createAccount', 'Email Address is required.');
+      if (!PW_RE.test(pw)) return err('createAccount', 'Password must contain at least 8 characters, one uppercase, one number and one special character.');
+      if (pw !== v) return err('createAccount', 'Passwords do not match.');
+      if (!p.querySelector('[data-automation-id=createAccountCheckbox]').checked) return err('createAccount', 'You must agree to the terms.');
+      if (window.__mock.accounts[email]) return err('createAccount', 'An account with this email address already exists. Please sign in.');
+      window.__mock.accounts[email] = pw; window.__mock.signedIn = true; go('myInfo');
+    }
+    function signIn() {
+      const p = document.querySelector('[data-page=signIn]');
+      const email = p.querySelector('[data-automation-id=email]').value, pw = p.querySelector('[data-automation-id=password]').value;
+      if (window.__mock.accounts[email] !== pw) return err('signIn', 'The email address or password is incorrect.');
+      window.__mock.signedIn = true; go('myInfo');
+    }
+    // ---- listbox buttons ----
+    function openListbox(btn, options) {
+      document.querySelectorAll('ul[role=listbox].lb').forEach((u) => u.remove());
+      const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox'); ul.className = 'lb';
+      options.forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = (e) => { e.stopPropagation(); btn.textContent = t; btn.dataset.value = t; ul.remove(); }; ul.appendChild(li); });
+      btn.insertAdjacentElement('afterend', ul);
+    }
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[aria-haspopup=listbox]');
+      if (!btn) { document.querySelectorAll('ul[role=listbox].lb').forEach((u) => u.remove()); return; }
+      let opts = (btn.dataset.options || '').split('|').filter(Boolean);
+      if (btn.id === 'country') opts = ['Canada', 'United Kingdom', 'United States of America'];
+      if (btn.id === 'state') opts = ['Arizona', 'California', 'New York', 'Texas', 'Washington'];
+      if (btn.id === 'ptype') opts = ['Home', 'Mobile', 'Work'];
+      if (btn.id === 'pcode') opts = ['Canada (+1)', 'India (+91)', 'United States of America (+1)'];
+      openListbox(btn, opts);
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('ul[role=listbox]').forEach((u) => u.remove()); });
+    // ---- spinbutton dates: accept only real typed characters (beforeinput/insertText), like Workday ----
+    function spin(el, len) {
+      // Like a React-controlled masked input: only browser-generated (trusted) input
+      // events update state; a value poked in via the DOM property is thrown away on blur.
+      el.addEventListener('input', (e) => {
+        if (!e.isTrusted) return;
+        el.value = el.value.replace(/\D/g, '').slice(0, len);
+        el.dataset.typed = el.value ? '1' : '';
       });
-      el.addEventListener('input', () => { el.value = el.value.replace(/\D/g, '').slice(0, len); });
+      el.addEventListener('keydown', (e) => {
+        if (/^\d$/.test(e.key) && e.isTrusted) { el.value = (el.value + e.key).slice(0, len); el.dataset.typed = '1'; e.preventDefault(); }
+      });
+      el.addEventListener('blur', () => { if (!el.dataset.typed) el.value = ''; });
     }
-    function dateField(prefix) {
-      return `<div class="date" data-automation-id="formField-${prefix}">
-        <input type="text" data-automation-id="${prefix}-dateSectionMonth-input" placeholder="MM" />
-        <input type="text" data-automation-id="${prefix}-dateSectionYear-input" placeholder="YYYY" />
-      </div>`;
+    document.querySelectorAll('[role=spinbutton]').forEach((el) => spin(el, el.placeholder === 'YYYY' ? 4 : 2));
+    // ---- searchable prompts with two levels (source) ----
+    const SOURCE_TREE = { 'Job Board': ['Indeed', 'LinkedIn', 'Handshake', 'Glassdoor', 'Simplify'], 'Social Media': ['LinkedIn', 'Instagram', 'X'], 'University': ['Career Fair', 'Career Center', 'Professor'], 'Other': ['Friend', 'Company Website', 'Other'] };
+    const src = document.getElementById('source');
+    function srcMenu(items, onPick) {
+      document.querySelectorAll('ul[role=listbox].src').forEach((u) => u.remove());
+      const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox'); ul.className = 'src';
+      items.forEach(([t, leaf]) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', leaf ? 'promptLeafNode' : 'promptOption'); li.textContent = t + (leaf ? '' : ' ›'); li.onclick = (e) => { e.stopPropagation(); onPick(t, leaf); }; ul.appendChild(li); });
+      src.parentElement.appendChild(ul);
     }
-    let weN = 0;
-    document.querySelector('[data-automation-id=workExperienceSection] [data-automation-id=Add]').addEventListener('click', () => {
-      weN++;
-      const d = document.createElement('div');
-      d.className = 'panel'; d.setAttribute('data-automation-id', 'workExperience-' + weN);
-      d.innerHTML = `<label>Job Title *</label><input type="text" data-automation-id="jobTitle" />
+    function pickSource(t) { const p = document.createElement('span'); p.className = 'pill'; p.setAttribute('data-automation-id', 'selectedItem'); p.textContent = t; document.getElementById('source-pills').appendChild(p); src.value = ''; document.querySelectorAll('ul[role=listbox].src').forEach((u) => u.remove()); }
+    src.addEventListener('click', () => { if (!src.value) srcMenu(Object.keys(SOURCE_TREE).map((k) => [k, false]), (k) => srcMenu(SOURCE_TREE[k].map((l) => [l, true]), (l) => pickSource(l))); });
+    src.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const q = src.value.toLowerCase(); const leaves = [...new Set(Object.values(SOURCE_TREE).flat())].filter((l) => l.toLowerCase().includes(q));
+      srcMenu(leaves.map((l) => [l, true]), (l) => pickSource(l));
+    });
+    // ---- repeating sections ----
+    function dateField(prefix, withDay) {
+      return `<div class="date" data-automation-id="formField-${prefix}"><input type="text" role="spinbutton" data-automation-id="dateSectionMonth-input" placeholder="MM" />${withDay ? '<input type="text" role="spinbutton" data-automation-id="dateSectionDay-input" placeholder="DD" />' : ''}<input type="text" role="spinbutton" data-automation-id="dateSectionYear-input" placeholder="YYYY" /></div>`;
+    }
+    function yearField(prefix) { return `<div class="date" data-automation-id="formField-${prefix}"><input type="text" role="spinbutton" data-automation-id="dateSectionYear-input" placeholder="YYYY" /></div>`; }
+    function wire(d) { d.querySelectorAll('[role=spinbutton]').forEach((el) => spin(el, el.placeholder === 'YYYY' ? 4 : 2)); }
+    let weN = 0, eduN = 0, langN = 0, webN = 0;
+    function addWE() {
+      weN++; const d = document.createElement('div'); d.className = 'panel'; d.setAttribute('data-automation-id', 'workExperience-' + weN);
+      d.innerHTML = `<button type="button" data-automation-id="panel-set-delete-button" style="position:absolute;right:10px;top:6px" onclick="this.parentElement.remove()">Delete</button>
+        <label>Job Title *</label><input type="text" data-automation-id="jobTitle" />
         <label>Company *</label><input type="text" data-automation-id="company" />
         <label>Location</label><input type="text" data-automation-id="location" />
-        <label><input type="checkbox" data-automation-id="currentlyWorkHere" style="width:auto" /> I currently work here</label>
+        <label style="font-weight:400"><input type="checkbox" data-automation-id="currentlyWorkHere" style="width:auto" /> I currently work here</label>
         <label>From *</label>${dateField('startDate')}
         <label>To</label>${dateField('endDate')}
         <label>Role Description</label><textarea data-automation-id="description" rows="2"></textarea>`;
-      document.getElementById('we-list').appendChild(d);
-      d.querySelectorAll('[data-automation-id$=Month-input]').forEach((e) => maskedDate(e, 2));
-      d.querySelectorAll('[data-automation-id$=Year-input]').forEach((e) => maskedDate(e, 4));
-    });
-    let eduN = 0;
-    document.querySelector('[data-automation-id=educationSection] [data-automation-id=Add]').addEventListener('click', () => {
-      eduN++;
-      const d = document.createElement('div');
-      d.className = 'panel'; d.setAttribute('data-automation-id', 'education-' + eduN);
-      d.innerHTML = `<label>School or University *</label><input type="text" data-automation-id="school" />
-        <label>Degree *</label><div data-automation-id="formField-degree"><button type="button" aria-haspopup="listbox" data-automation-id="degree">Select One</button></div>
-        <label>Field of Study</label><input type="text" data-automation-id="fieldOfStudy" data-uxi-widget-type="selectinput" placeholder="Search" />
+      document.getElementById('we-list').appendChild(d); wire(d);
+      d.querySelector('[data-automation-id=currentlyWorkHere]').addEventListener('change', (e) => { d.querySelector('[data-automation-id=formField-endDate]').style.display = e.target.checked ? 'none' : ''; });
+    }
+    function addEdu() {
+      eduN++; const d = document.createElement('div'); d.className = 'panel'; d.setAttribute('data-automation-id', 'education-' + eduN);
+      d.innerHTML = `<label>School or University *</label><div data-automation-id="formField-schoolItem"><div class="pills"></div><input type="text" data-automation-id="school" data-uxi-widget-type="selectinput" placeholder="Search" /></div>
+        <label>Degree *</label><button type="button" aria-haspopup="listbox" data-automation-id="degree" data-options="Associate's|Bachelor's|Master's|Doctorate|High School">Select One</button>
+        <label>Field of Study</label><div data-automation-id="formField-fieldOfStudy"><div class="pills"></div><input type="text" data-automation-id="fieldOfStudy" data-uxi-widget-type="selectinput" placeholder="Search" /></div>
         <label>Overall Result (GPA)</label><input type="text" data-automation-id="gpa" />
-        <label>From</label><div class="date" data-automation-id="formField-firstYearAttended"><input type="text" data-automation-id="firstYearAttended-dateSectionYear-input" placeholder="YYYY" /></div>
-        <label>To (Actual or Expected)</label><div class="date" data-automation-id="formField-lastYearAttended"><input type="text" data-automation-id="lastYearAttended-dateSectionYear-input" placeholder="YYYY" /></div>`;
-      document.getElementById('edu-list').appendChild(d);
-      d.querySelectorAll('[data-automation-id$=Year-input]').forEach((e) => maskedDate(e, 4));
-      const btn = d.querySelector('[data-automation-id=degree]');
-      btn.addEventListener('click', () => {
-        const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox');
-        ["Associate's", "Bachelor's", "Master's", "Doctorate", "High School"].forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = () => { btn.textContent = t; ul.remove(); }; ul.appendChild(li); });
-        btn.parentElement.appendChild(ul);
-      });
+        <label>From</label>${yearField('firstYearAttended')}
+        <label>To (Actual or Expected)</label>${yearField('lastYearAttended')}`;
+      document.getElementById('edu-list').appendChild(d); wire(d);
+      const school = d.querySelector('[data-automation-id=school]');
+      school.addEventListener('keydown', (e) => { if (e.key !== 'Enter' || !school.value) return; const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox');
+        [school.value.includes('Santa Cruz') ? 'University of California-Santa Cruz' : school.value, 'Other'].forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = () => { const p = document.createElement('span'); p.className = 'pill'; p.setAttribute('data-automation-id', 'selectedItem'); p.textContent = t; school.previousElementSibling.appendChild(p); school.value = ''; school.dataset.picked = t; ul.remove(); }; ul.appendChild(li); });
+        school.parentElement.appendChild(ul); });
       const fos = d.querySelector('[data-automation-id=fieldOfStudy]');
-      fos.addEventListener('input', () => {
-        d.querySelectorAll('ul[role=listbox].fos').forEach((u) => u.remove());
-        if (!fos.value) return;
-        const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox'); ul.className = 'fos';
-        ['Computer Science', 'Computer Engineering', 'Mathematics'].filter((t) => t.toLowerCase().includes(fos.value.toLowerCase())).forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = () => { fos.value = t; ul.remove(); }; ul.appendChild(li); });
-        fos.parentElement.appendChild(ul);
-      });
-    });
-    let webN = 0;
-    document.querySelector('[data-automation-id=websiteSection] [data-automation-id=Add]').addEventListener('click', () => {
-      webN++;
-      const d = document.createElement('div');
-      d.className = 'panel'; d.setAttribute('data-automation-id', 'websitePanelSet-' + webN);
-      d.innerHTML = `<label>URL</label><input type="text" data-automation-id="website" />`;
+      fos.addEventListener('keydown', (e) => { if (e.key !== 'Enter' || !fos.value) return; const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox');
+        ['Computer Science', 'Computer Engineering', 'Mathematics'].filter((t) => t.toLowerCase().includes(fos.value.toLowerCase())).forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = () => { const p = document.createElement('span'); p.className = 'pill'; p.setAttribute('data-automation-id', 'selectedItem'); p.textContent = t; fos.previousElementSibling.appendChild(p); fos.value = ''; fos.dataset.picked = t; ul.remove(); }; ul.appendChild(li); });
+        fos.parentElement.appendChild(ul); });
+    }
+    function addLang() {
+      langN++; const d = document.createElement('div'); d.className = 'panel'; d.setAttribute('data-automation-id', 'language-' + langN);
+      d.innerHTML = `<label>Language *</label><button type="button" aria-haspopup="listbox" data-automation-id="language" data-options="English|Spanish|Hindi|Mandarin">Select One</button>
+        <label style="font-weight:400"><input type="checkbox" data-automation-id="nativeLanguage" style="width:auto" /> I am fluent in this language</label>
+        <label>Comprehension</label><button type="button" aria-haspopup="listbox" data-automation-id="languageProficiency-0" data-options="1 - Beginner|2 - Intermediate|3 - Advanced|4 - Fluent">Select One</button>
+        <label>Overall</label><button type="button" aria-haspopup="listbox" data-automation-id="languageProficiency-1" data-options="1 - Beginner|2 - Intermediate|3 - Advanced|4 - Fluent">Select One</button>
+        <label>Reading</label><button type="button" aria-haspopup="listbox" data-automation-id="languageProficiency-2" data-options="1 - Beginner|2 - Intermediate|3 - Advanced|4 - Fluent">Select One</button>
+        <label>Speaking</label><button type="button" aria-haspopup="listbox" data-automation-id="languageProficiency-3" data-options="1 - Beginner|2 - Intermediate|3 - Advanced|4 - Fluent">Select One</button>
+        <label>Writing</label><button type="button" aria-haspopup="listbox" data-automation-id="languageProficiency-4" data-options="1 - Beginner|2 - Intermediate|3 - Advanced|4 - Fluent">Select One</button>`;
+      document.getElementById('lang-list').appendChild(d);
+    }
+    function addWeb() {
+      webN++; const d = document.createElement('div'); d.className = 'panel'; d.setAttribute('data-automation-id', 'websitePanelSet-' + webN);
+      d.innerHTML = `<label>URL *</label><input type="text" data-automation-id="website" />`;
       document.getElementById('web-list').appendChild(d);
-    });
+    }
     const sk = document.querySelector('[data-automation-id=skillsPrompt]');
-    sk.addEventListener('input', () => {
+    sk.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' || !sk.value) return;
       document.querySelectorAll('ul[role=listbox].sk').forEach((u) => u.remove());
-      if (!sk.value) return;
       const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox'); ul.className = 'sk';
       const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = sk.value;
       li.onclick = () => { const p = document.createElement('span'); p.className = 'pill'; p.setAttribute('data-automation-id', 'selectedItem'); p.textContent = sk.value; document.getElementById('skills-pills').appendChild(p); sk.value = ''; ul.remove(); };
       ul.appendChild(li); sk.parentElement.appendChild(ul);
     });
-    document.querySelector('[data-automation-id=file-upload-input-ref]').addEventListener('change', (e) => { document.getElementById('resume-name').textContent = e.target.files[0]?.name || ''; });
-    // Start with one blank work-experience panel, like Workday does.
-    document.querySelector('[data-automation-id=workExperienceSection] [data-automation-id=Add]').click();
+    document.querySelector('[data-automation-id=file-upload-input-ref]').addEventListener('change', (e) => { document.getElementById('resume-name').textContent = e.target.files[0]?.name || ''; e.target.parentElement.insertAdjacentHTML('beforeend', '<div data-automation-id="file-upload-item">' + (e.target.files[0]?.name || '') + '</div>'); });
+    // ---- validation like Workday (red error at top, stays on page) ----
+    function validate(page) {
+      const p = document.querySelector(`[data-page=${page}]`); const missing = [];
+      p.querySelectorAll('label').forEach((l) => {
+        if (!/\*/.test(l.textContent)) return;
+        let ctrl = l.nextElementSibling; if (!ctrl) return;
+        if (ctrl.matches('input[type=text],input[type=email],textarea')) { if (!ctrl.value.trim()) missing.push(l.textContent.replace('*', '').trim()); }
+        else if (ctrl.matches('button[aria-haspopup=listbox]')) { if (!ctrl.dataset.value && /select one/i.test(ctrl.textContent)) missing.push(l.textContent.replace('*', '').trim()); }
+        else if (ctrl.classList.contains('date')) { if ([...ctrl.querySelectorAll('input')].some((i) => !i.value)) missing.push(l.textContent.replace('*', '').trim()); }
+        else if (ctrl.matches('[data-automation-id^=formField-]')) { const inp = ctrl.querySelector('input'); if (inp && !inp.dataset.picked && !ctrl.querySelector('.pill')) missing.push(l.textContent.replace('*', '').trim()); }
+      });
+      p.querySelectorAll('fieldset').forEach((f) => { if (/\*/.test(f.querySelector('legend').textContent) && ![...f.querySelectorAll('input')].some((i) => i.checked)) missing.push(f.querySelector('legend').textContent.replace('*', '').trim()); });
+      if (page === 'myExp') p.querySelectorAll('[data-automation-id^=workExperience-]').forEach((w) => { if (!w.querySelector('[data-automation-id=jobTitle]').value) missing.push('Job Title'); [...w.querySelectorAll('[data-automation-id=formField-startDate] input')].forEach((i) => { if (!i.value) missing.push('Start date'); }); });
+      if (page === 'disclosures' && !p.querySelector('[data-automation-id=agreementCheckbox]').checked) missing.push('Terms and conditions');
+      if (page === 'selfid' && ![...p.querySelectorAll('fieldset input')].some((i) => i.checked)) missing.push('Disability status');
+      err(page, missing.length ? 'Please fix the following: ' + [...new Set(missing)].join(', ') : '');
+      return missing.length === 0;
+    }
+    function snapshot() {
+      const v = (sel) => { const el = document.querySelector(sel); if (!el) return ''; return el.tagName === 'BUTTON' ? (el.dataset.value || '') : el.value; };
+      return {
+        source: [...document.querySelectorAll('#source-pills .pill')].map((p) => p.textContent),
+        prev: document.getElementById('prev-no').checked ? 'No' : document.getElementById('prev-yes').checked ? 'Yes' : '',
+        country: v('#country'), fn: v('#fn'), ln: v('#ln'), addr: v('#addr'), city: v('#city'), state: v('#state'), zip: v('#zip'), ptype: v('#ptype'), pcode: v('#pcode'), phone: v('#phone'),
+        we: [...document.querySelectorAll('[data-automation-id^=workExperience-]')].map((p) => ({ t: p.querySelector('[data-automation-id=jobTitle]').value, c: p.querySelector('[data-automation-id=company]').value, cur: p.querySelector('[data-automation-id=currentlyWorkHere]').checked, s: [...p.querySelectorAll('[data-automation-id=formField-startDate] input')].map((i) => i.value).join('/'), e: [...p.querySelectorAll('[data-automation-id=formField-endDate] input')].map((i) => i.value).join('/'), d: p.querySelector('[data-automation-id=description]').value.slice(0, 25) })),
+        edu: [...document.querySelectorAll('[data-automation-id^=education-]')].map((p) => ({ s: p.querySelector('[data-automation-id=school]').dataset.picked, deg: p.querySelector('[data-automation-id=degree]').dataset.value, fos: p.querySelector('[data-automation-id=fieldOfStudy]').dataset.picked, gpa: p.querySelector('[data-automation-id=gpa]').value, from: p.querySelector('[data-automation-id=formField-firstYearAttended] input').value, to: p.querySelector('[data-automation-id=formField-lastYearAttended] input').value })),
+        langs: [...document.querySelectorAll('[data-automation-id^=language-]')].map((p) => ({ l: p.querySelector('[data-automation-id=language]').dataset.value, native: p.querySelector('[data-automation-id=nativeLanguage]').checked, prof: [...p.querySelectorAll('[data-automation-id^=languageProficiency-]')].map((b) => b.dataset.value) })),
+        skills: [...document.querySelectorAll('#skills-pills .pill')].map((p) => p.textContent), resume: document.getElementById('resume-name').textContent,
+        web: [...document.querySelectorAll('[data-automation-id=website]')].map((e) => e.value),
+        q: Object.fromEntries([...document.querySelectorAll('[data-page=questions] button[aria-haspopup=listbox]')].map((b) => [b.dataset.automationId, b.dataset.value])), q3: [...document.querySelectorAll('[data-automation-id=formField-gradDate] input')].map((i) => i.value).join('/'), q7: document.querySelector('[data-automation-id=q7]').value.slice(0, 40),
+        gender: v('[data-automation-id=gender]'), eth: v('[data-automation-id=ethnicityDropdown]'), vet: v('[data-automation-id=veteranStatus]'), agree: document.querySelector('[data-automation-id=agreementCheckbox]').checked,
+        dis: ['Yes', 'No', 'Decline'].filter((k) => document.querySelector(`[data-automation-id=disability${k}]`).checked), sig: v('#sig-name'), sigDate: [...document.querySelectorAll('[data-automation-id=formField-dateSignedOn] input')].map((i) => i.value).join('/'),
+        accounts: Object.keys(window.__mock.accounts), submitted: window.__mock.submitted,
+      };
+    }
+    window.__snapshot = snapshot;
+    addWE();
+    if (location.hash && location.hash !== '#posting') go(location.hash.slice(1));
   </script>
 </body>
 </html>

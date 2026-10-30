@@ -207,9 +207,18 @@
   }
 
   async function typeInto(el, value) {
+    value = String(value ?? "");
     el.focus();
     el.dispatchEvent(new FocusEvent("focus", { bubbles: true }));
-    setNativeValue(el, value);
+    // Real keystrokes (execCommand fires beforeinput/input like typing does),
+    // which React/Angular/Vue controlled inputs all accept; native setter as fallback.
+    let ok = false;
+    try {
+      if (el.value) { el.setSelectionRange?.(0, el.value.length); document.execCommand("delete"); }
+      ok = document.execCommand("insertText", false, value);
+    } catch { ok = false; }
+    await sleep(30);
+    if (!ok || el.value !== value) setNativeValue(el, value);
     await sleep(40);
     el.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "a" }));
     el.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
@@ -372,10 +381,11 @@
     const d = R.fmtMonthYear(raw);
     if (!d) return false;
     const aid = el.getAttribute("data-automation-id") || "";
-    const keys = state.wd ? state.wd.typeKeys : typeInto;
-    if (/dateSectionMonth/i.test(aid)) return keys(el, d.month);
-    if (/dateSectionYear/i.test(aid)) return keys(el, d.year);
-    if (/dateSectionDay/i.test(aid)) return keys(el, d.day || "01");
+    const digits = state.wd ? state.wd.typeDigits : typeInto;
+    const aria = el.getAttribute("aria-label") || "";
+    if (/dateSectionMonth/i.test(aid) || /month/i.test(aria)) return digits(el, d.month);
+    if (/dateSectionYear/i.test(aid) || /year/i.test(aria)) return digits(el, d.year);
+    if (/dateSectionDay/i.test(aid) || /\bday\b/i.test(aria)) return digits(el, d.day || "01");
     if (el.type === "month") return typeInto(el, `${d.year}-${d.month}`);
     if (el.type === "date") return typeInto(el, `${d.year}-${d.month}-${d.day || "01"}`);
     if (el.tagName === "SELECT") {
@@ -461,11 +471,40 @@
    * Resolve a question we have no rule for: saved answers → AI → ask the user.
    * Returns { answer } | { skip: true } | { manual: true }.
    */
-  async function resolveUnknown({ question, options, kind, required, el }) {
+  function recordQuestion(question, options, answer, source) {
     const key = answerKey(question);
-    if (state.answers[key] && (!options || options.some((o) => norm(o) === norm(state.answers[key])))) {
-      return { answer: state.answers[key], source: "saved" };
+    if (!key || key.length < 4) return;
+    send({ type: "Q_SEEN", key, question: question.slice(0, 300), options: (options || []).slice(0, 40), answer: answer ?? "", source: source || "", company: state.job?.company || "", host: HOST });
+  }
+
+  function savedAnswerFor(question, options) {
+    const key = answerKey(question);
+    const direct = state.answers[key];
+    const fits = (a) => a && (!options || !options.length || options.some((o) => norm(o) === norm(a) || norm(o).includes(norm(a)) || norm(a).includes(norm(o))));
+    const toOption = (a) => (options && options.length ? (options.find((o) => norm(o) === norm(a)) || options.find((o) => norm(o).includes(norm(a)) || norm(a).includes(norm(o)))) : a);
+    if (fits(direct)) return toOption(direct);
+    // Fuzzy: same question with slightly different wording.
+    const words = key.split(" ").filter((w) => w.length > 3);
+    if (words.length < 3) return null;
+    for (const [k, a] of Object.entries(state.answers)) {
+      if (!a || k === key) continue;
+      const kw = k.split(" ").filter((w) => w.length > 3);
+      const overlap = words.filter((w) => kw.includes(w)).length;
+      if (overlap >= Math.max(3, Math.ceil(Math.min(words.length, kw.length) * 0.75)) && fits(a)) return toOption(a);
     }
+    return null;
+  }
+
+  async function resolveUnknown({ question, options, kind, required, el }) {
+    const res = await resolveUnknownInner({ question, options, kind, required, el });
+    if (!res.defer) recordQuestion(question, options, res.answer, res.skip ? "skipped" : res.manual ? "manual" : res.source);
+    return res;
+  }
+
+  async function resolveUnknownInner({ question, options, kind, required, el }) {
+    const key = answerKey(question);
+    const saved = savedAnswerFor(question, options);
+    if (saved) return { answer: saved, source: "saved" };
     const isEeo = R.EEO_RE.test(question);
     if (!isEeo && state.settings.apiKey) {
       setStatus(`Thinking about “${question.slice(0, 60)}”…`);
@@ -711,10 +750,11 @@
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       const a = answers.values?.[i];
-      if (!a || !a.answer) { addLog("skipped", it.el, it.label, "Skipped"); continue; }
+      if (!a || !a.answer) { addLog("skipped", it.el, it.label, "Skipped"); recordQuestion(it.question, it.options, "", "skipped"); continue; }
       const ok = await applyAnswer(it.el, a.answer, { isCustom: it.isCustom, radios: it.radios });
       if (ok) state.filled.add(it.el);
       addLog(ok ? "filled" : "left", it.el, it.label, ok ? a.answer : `Couldn't set “${a.answer}”`, "you");
+      recordQuestion(it.question, it.options, a.answer, "you");
       if (a.remember) { const key = answerKey(it.question); state.answers[key] = a.answer; send({ type: "SAVE_ANSWER", key, answer: a.answer }); }
     }
   }
@@ -725,16 +765,20 @@
 
   function ensureWorkday() {
     if (state.wd || !window.AutopilotWorkday || !looksLikeWorkday()) return;
-    state.wd = window.AutopilotWorkday.install({ sleep, norm, textOf, isVisible, typeInto, setNativeValue, addLog, highlight, setStatus, setStatusQuiet: setStatus, fmtMonthYear: R.fmtMonthYear, markSeen: (el) => state.seen.add(el) });
+    state.wd = window.AutopilotWorkday.install({
+      sleep, norm, textOf, isVisible, setNativeValue, addLog, highlight, setStatus, send, prompt, validationErrors,
+      fmtMonthYear: R.fmtMonthYear, today: R.today, eeoPick: R.eeoPick, stateNames: R.STATE_NAMES,
+      markSeen: (el) => { if (el) state.seen.add(el); },
+    });
   }
 
   async function fillPage() {
     ensureWorkday();
-    if (state.wd && state.wd.isExperiencePage()) {
+    if (state.wd) {
       try {
         await state.wd.run(state.profile, { setFile, resumeName: () => state.resume?.name || "resume" });
       } catch (err) {
-        addLog("left", document.body, "Workday experience page", "Error: " + (err?.message || err));
+        addLog("left", document.body, "Workday page", "Error: " + (err?.message || err));
       }
       if (state.mode !== "running") return false;
     }
@@ -933,7 +977,10 @@
 
   // ---------------------------------------------------------------- orchestration
   function pageKey() {
-    return location.href.split("#")[0];
+    // SPAs (Workday especially) keep one URL across steps, so include what the
+    // page says it is: the active progress step or the main heading.
+    const step = textOf(document.querySelector("[data-automation-id='progressBarActiveStep'], [aria-current='step'], [aria-current='true'], h1, h2[data-automation-id='pageHeaderTitle'], h2"));
+    return `${location.href}|${step.slice(0, 80)}`;
   }
 
   async function step() {
@@ -956,7 +1003,9 @@
 
       if (dismissCookies()) { await sleep(600); }
 
-      if (await handleAuth()) { await sleep(1500); state.queued = true; return; }
+      ensureWorkday();
+      if (state.wd && (await state.wd.handleAuth({ profile: state.profile, settings: state.settings }))) { await sleep(1500); state.queued = true; return; }
+      if (!state.wd && (await handleAuth())) { await sleep(1500); state.queued = true; return; }
 
       setStatus("Filling this page…");
       const hadFields = await fillPage();
@@ -1031,6 +1080,14 @@
         const errs = validationErrors();
         if (errs.length && pageKey() === state.pageKey) {
           for (const el of invalidFields()) { state.seen.delete(el); state.filled.delete(el); }
+          if (state.nextAttempts < 2) {
+            // One more fill pass over whatever the form pointed at before asking.
+            setStatus("The form flagged something — filling what it pointed at…");
+            for (const el of emptyRequiredFields()) state.seen.delete(el);
+            state.counters = {};
+            state.queued = true;
+            return;
+          }
           await reportErrors(errs);
         }
         state.queued = true;
@@ -1185,7 +1242,7 @@
     ui.title.textContent = state.job?.company ? `· ${state.job.company}` : `· ${state.ats}`;
     root.addEventListener("click", onOverlayClick);
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && state.mode === "running") togglePause();
+      if (e.key === "Escape" && e.isTrusted && state.mode === "running") togglePause();
     }, true);
   }
 

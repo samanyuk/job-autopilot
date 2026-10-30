@@ -5,11 +5,11 @@ import FilterPanel, { DEFAULT_FILTERS, type Filters } from "@/components/FilterP
 import JobCard from "@/components/JobCard";
 import JobDetail from "@/components/JobDetail";
 import ProfilePanel from "@/components/ProfilePanel";
-import { applyViaExtension, onExtensionResult, pingExtension, syncProfileToExtension } from "@/lib/extensionBridge";
+import { applyViaExtension, onExtensionQbank, onExtensionResult, pingExtension, syncProfileToExtension } from "@/lib/extensionBridge";
 import { ageDays, ageLabel, isRemote } from "@/lib/jobs";
 import { scoreJob } from "@/lib/match";
 import { storage } from "@/lib/storage";
-import { DEFAULT_SETTINGS, type Ats, type Job, type JobDescription, type JobStatus, type JobStatusEntry, type Profile, type ResumeFile, type Settings } from "@/lib/types";
+import { DEFAULT_SETTINGS, type Ats, type Job, type JobDescription, type JobStatus, type JobStatusEntry, type Profile, type QuestionBank, type ResumeFile, type SavedAnswers, type Settings } from "@/lib/types";
 
 type View = "jobs" | "profile" | "applied";
 
@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [resume, setResume] = useState<ResumeFile | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [qbank, setQbank] = useState<QuestionBank>({});
+  const [answers, setAnswers] = useState<SavedAnswers>({});
   const [statuses, setStatuses] = useState<Record<string, JobStatusEntry>>({});
   const [descriptions, setDescriptions] = useState<Record<string, JobDescription>>({});
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -37,6 +39,8 @@ export default function Dashboard() {
     setProfile(storage.getProfile());
     setResume(storage.getResume());
     setSettings(storage.getSettings());
+    setQbank(storage.getQbank());
+    setAnswers(storage.getAnswers());
     setStatuses(storage.getStatuses());
     setDescriptions(storage.getDescriptions());
     setFilters(storage.getFilters(DEFAULT_FILTERS));
@@ -60,8 +64,35 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (extVersion && hydrated) syncProfileToExtension(profile, resume, settings);
-  }, [extVersion, profile, resume, settings, hydrated]);
+    if (extVersion && hydrated) syncProfileToExtension(profile, resume, settings, answers);
+  }, [extVersion, profile, resume, settings, answers, hydrated]);
+
+  // ---- question bank pushed by the extension on every ping ----
+  useEffect(() => {
+    return onExtensionQbank((bank, extAnswers, patch) => {
+      setQbank((prev) => {
+        const merged = { ...prev, ...bank };
+        storage.setQbank(merged);
+        return merged;
+      });
+      // Answers typed on an application ("remember this") flow back here.
+      setAnswers((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(extAnswers)) if (v && !next[k]) { next[k] = v; changed = true; }
+        if (changed) storage.setAnswers(next);
+        return changed ? next : prev;
+      });
+      if (patch.accountPassword) {
+        setSettings((prev) => {
+          if (prev.accountPassword) return prev;
+          const next = { ...prev, accountPassword: patch.accountPassword as string };
+          storage.setSettings(next);
+          return next;
+        });
+      }
+    });
+  }, []);
 
   // ---- outcomes reported by the extension (e.g. submitted) ----
   useEffect(() => {
@@ -183,7 +214,7 @@ export default function Dashboard() {
   const onApply = async (job: Job) => {
     if (!profile) return;
     setApplying(true);
-    const handled = await applyViaExtension(job, profile, resume, settings);
+    const handled = await applyViaExtension(job, profile, resume, settings, answers);
     if (!handled) window.open(job.url, "_blank", "noopener");
     mark(job, "applied");
     setApplying(false);
@@ -199,6 +230,10 @@ export default function Dashboard() {
   const onSettingsChange = (s: Settings) => {
     setSettings(s);
     storage.setSettings(s);
+  };
+  const onAnswersChange = (a: SavedAnswers) => {
+    setAnswers(a);
+    storage.setAnswers(a);
   };
 
   const appliedList = Object.values(statuses).sort((a, b) => b.at - a.at);
@@ -312,7 +347,7 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight mb-1">Your profile</h1>
             <p className="text-sm text-muted mb-6">Everything here stays in this browser. The extension reads it to fill applications.</p>
-            <ProfilePanel profile={profile} resume={resume} settings={settings} onChange={onProfileChange} onSettingsChange={onSettingsChange} />
+            <ProfilePanel profile={profile} resume={resume} settings={settings} qbank={qbank} answers={answers} onChange={onProfileChange} onSettingsChange={onSettingsChange} onAnswersChange={onAnswersChange} />
           </div>
         )}
 

@@ -3,14 +3,17 @@
 import { useRef, useState } from "react";
 import { parseProfile } from "@/lib/resumeParser";
 import { extractResumeText, fileToBase64 } from "@/lib/resumeText";
-import type { Education, Eeo, Experience, Profile, ResumeFile, Settings } from "@/lib/types";
+import type { Education, Eeo, Experience, Language, Profile, QuestionBank, ResumeFile, SavedAnswers, Settings } from "@/lib/types";
 
 interface Props {
   profile: Profile | null;
   resume: ResumeFile | null;
   settings: Settings;
+  qbank: QuestionBank;
+  answers: SavedAnswers;
   onChange: (p: Profile | null, r: ResumeFile | null) => void;
   onSettingsChange: (s: Settings) => void;
+  onAnswersChange: (a: SavedAnswers) => void;
 }
 
 function Choice<T extends string>({ label, value, options, onChange, hint }: {
@@ -53,7 +56,8 @@ function YesNo({ label, value, onChange }: { label: string; value: "yes" | "no" 
   );
 }
 
-export default function ProfilePanel({ profile, resume, settings, onChange, onSettingsChange }: Props) {
+export default function ProfilePanel({ profile, resume, settings, qbank, answers, onChange, onSettingsChange, onAnswersChange }: Props) {
+  const [qFilter, setQFilter] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
@@ -100,6 +104,20 @@ export default function ProfilePanel({ profile, resume, settings, onChange, onSe
     onChange({ ...p, eeo: { ...p.eeo, [k]: v } }, resume);
   };
   const setSetting = <K extends keyof Settings>(k: K, v: Settings[K]) => onSettingsChange({ ...settings, [k]: v });
+  const setAnswer = (key: string, v: string) => {
+    const next = { ...answers };
+    if (v) next[key] = v;
+    else delete next[key];
+    onAnswersChange(next);
+  };
+  const setLang = (i: number, patch: Partial<Language>) => {
+    if (!p) return;
+    const languages = (p.languages ?? [{ name: "English", fluent: true }]).map((l, idx) => (idx === i ? { ...l, ...patch } : l));
+    onChange({ ...p, languages }, resume);
+  };
+  const qEntries = Object.entries(qbank)
+    .filter(([, r]) => !qFilter || r.question.toLowerCase().includes(qFilter.toLowerCase()))
+    .sort((a, b) => b[1].count - a[1].count || b[1].lastSeen - a[1].lastSeen);
 
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
@@ -156,7 +174,64 @@ export default function ProfilePanel({ profile, resume, settings, onChange, onSe
               </div>
               <Field label="Expected graduation (MM/YYYY)" value={p.gradMonthYear} onChange={(v) => set("gradMonthYear", v)} placeholder="06/2028" />
               <Field label="How did you hear about us?" value={p.howHeard} onChange={(v) => set("howHeard", v)} placeholder="Job board" wide />
+              <Field label="Available to start (MM/YYYY)" value={p.availableFrom ?? ""} onChange={(v) => set("availableFrom", v)} placeholder="05/2027" />
+              <YesNo label="Previously worked at the companies you apply to?" value={p.previouslyEmployed} onChange={(v) => set("previouslyEmployed", v)} />
             </div>
+            <div className="mt-5">
+              <span className="label">Languages (Workday asks)</span>
+              <div className="flex flex-col gap-2">
+                {(p.languages ?? [{ name: "English", fluent: true }]).map((l, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input className="input max-w-[200px]" value={l.name} onChange={(e) => setLang(i, { name: e.target.value })} placeholder="Language" />
+                    <select className="input max-w-[170px]" value={l.fluent ? "Fluent" : l.level ?? "Intermediate"} onChange={(e) => setLang(i, e.target.value === "Fluent" ? { fluent: true, level: undefined } : { fluent: false, level: e.target.value })}>
+                      {["Fluent", "Advanced", "Intermediate", "Beginner"].map((o) => <option key={o}>{o}</option>)}
+                    </select>
+                    <button className="text-xs text-muted hover:text-ink" onClick={() => onChange({ ...p, languages: (p.languages ?? [{ name: "English", fluent: true }]).filter((_, idx) => idx !== i) }, resume)}>Remove</button>
+                  </div>
+                ))}
+                <button className="btn btn-subtle self-start" onClick={() => onChange({ ...p, languages: [...(p.languages ?? [{ name: "English", fluent: true }]), { name: "", fluent: false, level: "Intermediate" }] }, resume)}>+ Add language</button>
+              </div>
+            </div>
+          </section>
+
+          <section className="card p-6">
+            <h3 className="font-semibold tracking-tight mb-1">Questions seen in applications</h3>
+            <p className="text-xs text-muted mb-4">
+              Every question the extension met that wasn&apos;t in your profile, most frequent first. Set an answer here and it&apos;s used automatically next time — no card.
+              {Object.keys(qbank).length === 0 && " Nothing recorded yet — apply to something and come back."}
+            </p>
+            {Object.keys(qbank).length > 0 && (
+              <>
+                <input className="input mb-3" placeholder="Filter questions…" value={qFilter} onChange={(e) => setQFilter(e.target.value)} />
+                <div className="flex flex-col gap-3 max-h-[520px] overflow-y-auto scrollbar-thin pr-1">
+                  {qEntries.slice(0, 80).map(([key, r]) => {
+                    const current = answers[key] ?? "";
+                    const hasOpts = r.options && r.options.length > 0;
+                    return (
+                      <div key={key} className="rounded-xl border border-line p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm leading-snug">{r.question}</p>
+                          <span className="tag whitespace-nowrap">×{r.count}</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          {hasOpts ? (
+                            <select className="input" value={current} onChange={(e) => setAnswer(key, e.target.value)}>
+                              <option value="">— ask me each time —</option>
+                              {r.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                              {current && !r.options.includes(current) && <option value={current}>{current}</option>}
+                            </select>
+                          ) : (
+                            <input className="input" value={current} placeholder={r.answer ? `Last time: ${r.answer.slice(0, 60)}` : "Type a standing answer"} onChange={(e) => setAnswer(key, e.target.value)} />
+                          )}
+                          {current && <button className="text-xs text-muted hover:text-ink whitespace-nowrap" onClick={() => setAnswer(key, "")}>Clear</button>}
+                        </div>
+                        {r.answer && !current && <p className="text-xs text-muted mt-1.5">Last answered “{r.answer.slice(0, 80)}” ({r.source}){r.companies.length ? ` · ${r.companies.slice(-3).join(", ")}` : ""}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </section>
 
           <section className="card p-6">

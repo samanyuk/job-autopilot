@@ -1,4 +1,4 @@
-import type { Job, JobStatus, Profile, ResumeFile, Settings } from "./types";
+import type { Job, JobStatus, Profile, QuestionBank, ResumeFile, SavedAnswers, Settings } from "./types";
 
 // Messages are exchanged with the Chrome extension's bridge content script via
 // window.postMessage on this page. The extension answers PING with READY and
@@ -11,6 +11,7 @@ export const BRIDGE = {
   SYNC: "AUTOPILOT_SYNC_PROFILE",
   ACK: "AUTOPILOT_ACK",
   RESULT: "AUTOPILOT_RESULT",
+  QBANK: "AUTOPILOT_QBANK",
 };
 
 export function pingExtension(timeoutMs = 800): Promise<string | null> {
@@ -31,9 +32,9 @@ export function pingExtension(timeoutMs = 800): Promise<string | null> {
   });
 }
 
-export function syncProfileToExtension(profile: Profile | null, resume: ResumeFile | null, settings: Settings) {
+export function syncProfileToExtension(profile: Profile | null, resume: ResumeFile | null, settings: Settings, answers: SavedAnswers) {
   if (typeof window === "undefined") return;
-  window.postMessage({ type: BRIDGE.SYNC, profile, resume, settings }, "*");
+  window.postMessage({ type: BRIDGE.SYNC, profile, resume, settings, answers }, "*");
 }
 
 /**
@@ -41,7 +42,7 @@ export function syncProfileToExtension(profile: Profile | null, resume: ResumeFi
  * extension acknowledged; false when no extension responded (caller should
  * fall back to window.open).
  */
-export function applyViaExtension(job: Job, profile: Profile, resume: ResumeFile | null, settings: Settings, timeoutMs = 1200): Promise<boolean> {
+export function applyViaExtension(job: Job, profile: Profile, resume: ResumeFile | null, settings: Settings, answers: SavedAnswers, timeoutMs = 1200): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -55,7 +56,7 @@ export function applyViaExtension(job: Job, profile: Profile, resume: ResumeFile
       resolve(true);
     }
     window.addEventListener("message", onMsg);
-    window.postMessage({ type: BRIDGE.APPLY, job, profile, resume, settings }, "*");
+    window.postMessage({ type: BRIDGE.APPLY, job, profile, resume, settings, answers }, "*");
   });
 }
 
@@ -65,6 +66,17 @@ export function onExtensionResult(handler: (jobId: string, status: JobStatus, no
   const onMsg = (e: MessageEvent) => {
     if (e.source !== window || e.data?.type !== BRIDGE.RESULT) return;
     handler(String(e.data.jobId), e.data.status as JobStatus, e.data.note);
+  };
+  window.addEventListener("message", onMsg);
+  return () => window.removeEventListener("message", onMsg);
+}
+
+/** The extension's question bank + any settings it generated (e.g. an account password). */
+export function onExtensionQbank(handler: (qbank: QuestionBank, answers: SavedAnswers, settingsPatch: Partial<Settings>) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onMsg = (e: MessageEvent) => {
+    if (e.source !== window || e.data?.type !== BRIDGE.QBANK) return;
+    handler((e.data.qbank ?? {}) as QuestionBank, (e.data.answers ?? {}) as SavedAnswers, (e.data.settingsPatch ?? {}) as Partial<Settings>);
   };
   window.addEventListener("message", onMsg);
   return () => window.removeEventListener("message", onMsg);

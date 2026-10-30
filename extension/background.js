@@ -125,26 +125,76 @@ async function aiAnswer({ question, options, kind, job }) {
   return result;
 }
 
+// A password the extension generated must survive the dashboard re-syncing its
+// (possibly empty) settings.
+async function mergeSettings(incoming) {
+  const { settings } = await chrome.storage.local.get("settings");
+  const merged = { ...(settings || {}), ...(incoming || {}) };
+  if (!incoming?.accountPassword && settings?.accountPassword) merged.accountPassword = settings.accountPassword;
+  return merged;
+}
+
+// ------------------------------------------------------------------ real keystrokes
+// Last resort for inputs that ignore synthetic events (Workday's masked date
+// boxes on some tenants): drive the tab through the debugger protocol, which
+// produces keystrokes indistinguishable from the keyboard.
+const attached = new Set();
+async function attach(tabId) {
+  if (attached.has(tabId)) return;
+  await chrome.debugger.attach({ tabId }, "1.3");
+  attached.add(tabId);
+}
+chrome.debugger.onDetach.addListener((src) => attached.delete(src.tabId));
+
+async function typeKeys(tabId, text) {
+  await attach(tabId);
+  for (const ch of text) {
+    const code = /\d/.test(ch) ? `Digit${ch}` : /[a-z]/i.test(ch) ? `Key${ch.toUpperCase()}` : "Unidentified";
+    const keyCode = ch.charCodeAt(0);
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyDown", key: ch, code, text: ch, unmodifiedText: ch, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode });
+    await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyUp", key: ch, code, windowsVirtualKeyCode: keyCode, nativeVirtualKeyCode: keyCode });
+  }
+}
+
+async function pressKey(tabId, key) {
+  await attach(tabId);
+  const map = { Backspace: 8, Tab: 9, Enter: 13, Escape: 27, ArrowDown: 40, ArrowUp: 38, Delete: 46 };
+  const vk = map[key] || 0;
+  await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "rawKeyDown", key, code: key, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
+  if (key === "Enter") await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "char", key, code: key, text: "\r", unmodifiedText: "\r", windowsVirtualKeyCode: vk });
+  await chrome.debugger.sendCommand({ tabId }, "Input.dispatchKeyEvent", { type: "keyUp", key, code: key, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
+}
+
+async function detach(tabId) {
+  if (!attached.has(tabId)) return;
+  try { await chrome.debugger.detach({ tabId }); } catch { /* already gone */ }
+  attached.delete(tabId);
+}
+
 // ------------------------------------------------------------------ messages
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     switch (msg?.type) {
-      case "PING":
-        sendResponse({ ok: true, version: VERSION, results: await takeResults() });
+      case "PING": {
+        const { qbank, settings, answers } = await chrome.storage.local.get(["qbank", "settings", "answers"]);
+        sendResponse({ ok: true, version: VERSION, results: await takeResults(), qbank: qbank || {}, answers: answers || {}, settingsPatch: { accountPassword: settings?.accountPassword || "" } });
         break;
+      }
 
       case "SYNC_PROFILE": {
         const patch = {};
         if (msg.profile !== undefined) patch.profile = msg.profile;
         if (msg.resume !== undefined) patch.resume = msg.resume;
-        if (msg.settings !== undefined) patch.settings = msg.settings;
+        if (msg.settings !== undefined) patch.settings = await mergeSettings(msg.settings);
+        if (msg.answers !== undefined) patch.answers = msg.answers;
         await chrome.storage.local.set(patch);
         sendResponse({ ok: true });
         break;
       }
 
       case "APPLY": {
-        await chrome.storage.local.set({ profile: msg.profile, resume: msg.resume, settings: msg.settings || {} });
+        await chrome.storage.local.set({ profile: msg.profile, resume: msg.resume, settings: await mergeSettings(msg.settings || {}) });
+        if (msg.answers) await chrome.storage.local.set({ answers: msg.answers });
         const tab = await chrome.tabs.create({ url: msg.job.url, active: true });
         await setJobTab(tab.id, { ...msg.job, startedAt: Date.now() });
         sendResponse({ ok: true, tabId: tab.id });
@@ -167,7 +217,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       }
 
       case "STOP":
-        if (sender.tab?.id != null) await setJobTab(sender.tab.id, null);
+        if (sender.tab?.id != null) { await setJobTab(sender.tab.id, null); await detach(sender.tab.id); }
         sendResponse({ ok: true });
         break;
 
@@ -190,6 +240,62 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok: true });
         break;
       }
+
+      case "GET_ACCOUNTS": {
+        const { accounts } = await chrome.storage.local.get("accounts");
+        sendResponse({ accounts: accounts || {} });
+        break;
+      }
+
+      case "SAVE_ACCOUNT": {
+        const { accounts } = await chrome.storage.local.get("accounts");
+        await chrome.storage.local.set({ accounts: { ...(accounts || {}), [msg.host]: msg.account } });
+        sendResponse({ ok: true });
+        break;
+      }
+
+      case "Q_SEEN": {
+        // Question bank: every question met on an application, how often, and what was answered.
+        const { qbank } = await chrome.storage.local.get("qbank");
+        const bank = qbank || {};
+        const prev = bank[msg.key] || { count: 0 };
+        bank[msg.key] = {
+          question: msg.question,
+          options: (msg.options && msg.options.length ? msg.options : prev.options) || [],
+          answer: msg.answer || prev.answer || "",
+          source: msg.answer ? msg.source : prev.source || msg.source,
+          count: prev.count + 1,
+          lastSeen: Date.now(),
+          companies: Array.from(new Set([...(prev.companies || []), msg.company].filter(Boolean))).slice(-8),
+        };
+        const keys = Object.keys(bank);
+        if (keys.length > 400) {
+          keys.sort((a, b) => (bank[a].count - bank[b].count) || (bank[a].lastSeen - bank[b].lastSeen));
+          for (const k of keys.slice(0, keys.length - 400)) delete bank[k];
+        }
+        await chrome.storage.local.set({ qbank: bank });
+        sendResponse({ ok: true });
+        break;
+      }
+
+      case "TYPE_KEYS": {
+        const tabId = sender.tab?.id;
+        if (tabId == null) { sendResponse({ ok: false, error: "no tab" }); break; }
+        try {
+          for (let i = 0; i < (msg.backspaces || 0); i++) await pressKey(tabId, "Backspace");
+          if (msg.text) await typeKeys(tabId, msg.text);
+          if (msg.key) await pressKey(tabId, msg.key);
+          sendResponse({ ok: true });
+        } catch (err) {
+          sendResponse({ ok: false, error: String(err?.message || err) });
+        }
+        break;
+      }
+
+      case "RELEASE_KEYS":
+        if (sender.tab?.id != null) await detach(sender.tab.id);
+        sendResponse({ ok: true });
+        break;
 
       case "AI_ANSWER":
         sendResponse(await aiAnswer(msg));
@@ -220,4 +326,5 @@ chrome.action.onClicked.addListener(async (tab) => {
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   setJobTab(tabId, null).catch(() => {});
+  attached.delete(tabId);
 });
