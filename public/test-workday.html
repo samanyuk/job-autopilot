@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>My Experience — Mock Workday</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 720px; margin: 40px auto; color: #222; }
+    h2 { font-size: 18px; margin-top: 28px; }
+    .panel { border: 1px solid #ddd; border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+    label { display: block; font-size: 12px; margin: 10px 0 3px; font-weight: 600; }
+    input[type=text], textarea { width: 100%; padding: 7px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+    .date { display: flex; gap: 6px; } .date input { width: 60px; }
+    button { padding: 7px 14px; border-radius: 999px; border: 1px solid #333; background: #fff; cursor: pointer; margin-top: 8px; }
+    ul[role=listbox] { list-style: none; padding: 4px; margin: 0; border: 1px solid #999; background: #fff; position: absolute; width: 240px; }
+    ul[role=listbox] li { padding: 6px; cursor: pointer; } ul[role=listbox] li:hover { background: #eee; }
+    .hidden { display: none; }
+    .pill { display: inline-block; background: #eee; border-radius: 999px; padding: 2px 10px; margin: 2px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>My Experience</h1>
+  <p>Mock of Workday's experience page, using the same data-automation-ids.</p>
+
+  <h2>Work Experience</h2>
+  <div data-automation-id="workExperienceSection">
+    <div id="we-list"></div>
+    <button type="button" data-automation-id="Add">Add</button>
+  </div>
+
+  <h2>Education</h2>
+  <div data-automation-id="educationSection">
+    <div id="edu-list"></div>
+    <button type="button" data-automation-id="Add">Add</button>
+  </div>
+
+  <h2>Websites</h2>
+  <div data-automation-id="websiteSection">
+    <div id="web-list"></div>
+    <button type="button" data-automation-id="Add">Add</button>
+  </div>
+
+  <h2>Skills</h2>
+  <div data-automation-id="skillsSection">
+    <div id="skills-pills"></div>
+    <input type="text" data-automation-id="skillsPrompt" data-uxi-widget-type="selectinput" placeholder="Search" />
+  </div>
+
+  <h2>Resume/CV</h2>
+  <div data-automation-id="resumeSection">
+    <div data-automation-id="file-upload-drop-zone">
+      <button type="button" data-automation-id="select-files" onclick="document.querySelector('[data-automation-id=file-upload-input-ref]').click()">Select files</button>
+      <input type="file" data-automation-id="file-upload-input-ref" style="display:none" />
+      <span id="resume-name"></span>
+    </div>
+  </div>
+
+  <button type="button" data-automation-id="bottom-navigation-next-button" style="margin-top:30px">Save and Continue</button>
+
+  <script>
+    // Masked date input: accepts digits only, 2 chars for month, 4 for year.
+    function maskedDate(el, len) {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace') { el.value = el.value.slice(0, -1); e.preventDefault(); return; }
+        if (/^\d$/.test(e.key)) { if (el.value.length < len) el.value += e.key; e.preventDefault(); }
+        else if (e.key.length === 1) e.preventDefault();
+      });
+      el.addEventListener('input', () => { el.value = el.value.replace(/\D/g, '').slice(0, len); });
+    }
+    function dateField(prefix) {
+      return `<div class="date" data-automation-id="formField-${prefix}">
+        <input type="text" data-automation-id="${prefix}-dateSectionMonth-input" placeholder="MM" />
+        <input type="text" data-automation-id="${prefix}-dateSectionYear-input" placeholder="YYYY" />
+      </div>`;
+    }
+    let weN = 0;
+    document.querySelector('[data-automation-id=workExperienceSection] [data-automation-id=Add]').addEventListener('click', () => {
+      weN++;
+      const d = document.createElement('div');
+      d.className = 'panel'; d.setAttribute('data-automation-id', 'workExperience-' + weN);
+      d.innerHTML = `<label>Job Title *</label><input type="text" data-automation-id="jobTitle" />
+        <label>Company *</label><input type="text" data-automation-id="company" />
+        <label>Location</label><input type="text" data-automation-id="location" />
+        <label><input type="checkbox" data-automation-id="currentlyWorkHere" style="width:auto" /> I currently work here</label>
+        <label>From *</label>${dateField('startDate')}
+        <label>To</label>${dateField('endDate')}
+        <label>Role Description</label><textarea data-automation-id="description" rows="2"></textarea>`;
+      document.getElementById('we-list').appendChild(d);
+      d.querySelectorAll('[data-automation-id$=Month-input]').forEach((e) => maskedDate(e, 2));
+      d.querySelectorAll('[data-automation-id$=Year-input]').forEach((e) => maskedDate(e, 4));
+    });
+    let eduN = 0;
+    document.querySelector('[data-automation-id=educationSection] [data-automation-id=Add]').addEventListener('click', () => {
+      eduN++;
+      const d = document.createElement('div');
+      d.className = 'panel'; d.setAttribute('data-automation-id', 'education-' + eduN);
+      d.innerHTML = `<label>School or University *</label><input type="text" data-automation-id="school" />
+        <label>Degree *</label><div data-automation-id="formField-degree"><button type="button" aria-haspopup="listbox" data-automation-id="degree">Select One</button></div>
+        <label>Field of Study</label><input type="text" data-automation-id="fieldOfStudy" data-uxi-widget-type="selectinput" placeholder="Search" />
+        <label>Overall Result (GPA)</label><input type="text" data-automation-id="gpa" />
+        <label>From</label><div class="date" data-automation-id="formField-firstYearAttended"><input type="text" data-automation-id="firstYearAttended-dateSectionYear-input" placeholder="YYYY" /></div>
+        <label>To (Actual or Expected)</label><div class="date" data-automation-id="formField-lastYearAttended"><input type="text" data-automation-id="lastYearAttended-dateSectionYear-input" placeholder="YYYY" /></div>`;
+      document.getElementById('edu-list').appendChild(d);
+      d.querySelectorAll('[data-automation-id$=Year-input]').forEach((e) => maskedDate(e, 4));
+      const btn = d.querySelector('[data-automation-id=degree]');
+      btn.addEventListener('click', () => {
+        const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox');
+        ["Associate's", "Bachelor's", "Master's", "Doctorate", "High School"].forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = () => { btn.textContent = t; ul.remove(); }; ul.appendChild(li); });
+        btn.parentElement.appendChild(ul);
+      });
+      const fos = d.querySelector('[data-automation-id=fieldOfStudy]');
+      fos.addEventListener('input', () => {
+        d.querySelectorAll('ul[role=listbox].fos').forEach((u) => u.remove());
+        if (!fos.value) return;
+        const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox'); ul.className = 'fos';
+        ['Computer Science', 'Computer Engineering', 'Mathematics'].filter((t) => t.toLowerCase().includes(fos.value.toLowerCase())).forEach((t) => { const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = t; li.onclick = () => { fos.value = t; ul.remove(); }; ul.appendChild(li); });
+        fos.parentElement.appendChild(ul);
+      });
+    });
+    let webN = 0;
+    document.querySelector('[data-automation-id=websiteSection] [data-automation-id=Add]').addEventListener('click', () => {
+      webN++;
+      const d = document.createElement('div');
+      d.className = 'panel'; d.setAttribute('data-automation-id', 'websitePanelSet-' + webN);
+      d.innerHTML = `<label>URL</label><input type="text" data-automation-id="website" />`;
+      document.getElementById('web-list').appendChild(d);
+    });
+    const sk = document.querySelector('[data-automation-id=skillsPrompt]');
+    sk.addEventListener('input', () => {
+      document.querySelectorAll('ul[role=listbox].sk').forEach((u) => u.remove());
+      if (!sk.value) return;
+      const ul = document.createElement('ul'); ul.setAttribute('role', 'listbox'); ul.className = 'sk';
+      const li = document.createElement('li'); li.setAttribute('role', 'option'); li.setAttribute('data-automation-id', 'promptOption'); li.textContent = sk.value;
+      li.onclick = () => { const p = document.createElement('span'); p.className = 'pill'; p.setAttribute('data-automation-id', 'selectedItem'); p.textContent = sk.value; document.getElementById('skills-pills').appendChild(p); sk.value = ''; ul.remove(); };
+      ul.appendChild(li); sk.parentElement.appendChild(ul);
+    });
+    document.querySelector('[data-automation-id=file-upload-input-ref]').addEventListener('change', (e) => { document.getElementById('resume-name').textContent = e.target.files[0]?.name || ''; });
+    // Start with one blank work-experience panel, like Workday does.
+    document.querySelector('[data-automation-id=workExperienceSection] [data-automation-id=Add]').click();
+  </script>
+</body>
+</html>

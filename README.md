@@ -50,7 +50,7 @@ You can also click the extension's toolbar icon on *any* application page to run
 
 ## Try the extension safely
 
-`/test-application.html` on your deployed dashboard is a fake application form. Open it, click the extension icon, and watch it fill.
+`/test-application.html` on your deployed dashboard is a fake posting + application form, and `/test-workday.html` is a mock of Workday's "My Experience" page (same data-automation-ids). Open either, click the extension icon, and watch it fill.
 
 ## Run locally
 

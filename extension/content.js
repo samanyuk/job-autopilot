@@ -33,6 +33,8 @@
     applyAttempts: 0,
     authAttempts: 0,
     submitted: false,
+    pending: [], // unknown questions collected for one batched card per page
+    wd: null,
   };
 
   function detectAts() {
@@ -244,7 +246,7 @@
   }
 
   function visibleOptions() {
-    return Array.from(document.querySelectorAll("[role=option], [role=listbox] li, ul[data-automation-id*='Options'] li, .select__option, [class*='option']"))
+    return Array.from(document.querySelectorAll("[data-automation-id='promptOption'], [role=option], [role=listbox] li, ul[data-automation-id*='Options'] li, .select__option, [class*='option']"))
       .filter((o) => isVisible(o) && textOf(o).length > 0 && textOf(o).length < 120);
   }
 
@@ -370,9 +372,10 @@
     const d = R.fmtMonthYear(raw);
     if (!d) return false;
     const aid = el.getAttribute("data-automation-id") || "";
-    if (/dateSectionMonth/i.test(aid)) return typeInto(el, d.month);
-    if (/dateSectionYear/i.test(aid)) return typeInto(el, d.year);
-    if (/dateSectionDay/i.test(aid)) return typeInto(el, d.day || "01");
+    const keys = state.wd ? state.wd.typeKeys : typeInto;
+    if (/dateSectionMonth/i.test(aid)) return keys(el, d.month);
+    if (/dateSectionYear/i.test(aid)) return keys(el, d.year);
+    if (/dateSectionDay/i.test(aid)) return keys(el, d.day || "01");
     if (el.type === "month") return typeInto(el, `${d.year}-${d.month}`);
     if (el.type === "date") return typeInto(el, `${d.year}-${d.month}-${d.day || "01"}`);
     if (el.tagName === "SELECT") {
@@ -470,7 +473,24 @@
       if (res?.answer) return { answer: res.answer, source: "ai" };
       if (res?.error && res.error !== "no_key") addLog("left", el, question, `AI error: ${res.error}`);
     }
-    if (!required && kind === "text" && !options) return { skip: true };
+    // Obvious yes/no screening questions get a sensible default, marked "guess".
+    if (!isEeo && options && options.length >= 2 && options.length <= 3) {
+      const yn = options.filter((o) => /^(yes|no)\b/i.test(o));
+      if (yn.length >= 2) {
+        const g = R.guessYesNo(question);
+        if (g) {
+          const match = options.find((o) => new RegExp(`^${g}\\b`, "i").test(o));
+          if (match) return { answer: match, source: "guess" };
+        }
+      }
+    }
+    if (!isEeo && options && options.length) {
+      const g = R.guessChoice(question, options, state.profile);
+      if (g) return { answer: g, source: "guess" };
+    }
+    // Optional and unknown → leave it blank rather than interrupt.
+    if (!required) return { skip: true };
+    if (state.deferring) return { defer: true };
     const resp = await prompt({
       type: options && options.length ? "choice" : "text",
       title: isEeo ? "Demographic question" : required ? "Required question" : "I'm not sure about this one",
@@ -541,7 +561,9 @@
       if (el.tagName === "SELECT") options = Array.from(el.options).map((o) => o.text.trim()).filter((t) => t && !/^(select|choose|please select|--)/i.test(t));
       else if (isCustom && el.tagName !== "INPUT") options = await readCustomOptions(el);
       const question = humanLabel(label) + (containerText && containerText !== norm(humanLabel(label)) ? ` — ${containerText.slice(0, 160)}` : "");
-      const resp = await resolveUnknown({ question: humanLabel(label).length > 12 ? humanLabel(label) : question, options, kind: kind === "textarea" ? "text" : kind, required, el });
+      const q = humanLabel(label).length > 12 ? humanLabel(label) : question;
+      const resp = await resolveUnknown({ question: q, options, kind: kind === "textarea" ? "text" : kind, required, el });
+      if (resp.defer) { state.pending.push({ el, question: q, options, kind: kind === "textarea" ? "text" : kind, isCustom, label }); return; }
       if (resp.skip) return addLog("skipped", el, label, required ? "Skipped (required — the form may complain)" : "Nothing to put here");
       if (resp.manual) { state.manual.add(el); return addLog("left", el, label, "You're filling this one"); }
       value = resp.answer;
@@ -669,6 +691,7 @@
     if (want && !texts.some((t) => norm(t) === norm(want) || norm(t).startsWith(norm(want) + " ") || norm(t).startsWith(norm(want) + ","))) want = ""; // e.g. options aren't Yes/No
     if (!want) {
       const resp = await resolveUnknown({ question, options: texts, kind: "choice", required: isRequired(el), el });
+      if (resp.defer) { state.pending.push({ el, question, options: texts, kind: "choice", radios, label: question }); return; }
       if (resp.skip) return addLog("skipped", el, question, "Skipped");
       if (resp.manual) { state.manual.add(el); return addLog("left", el, question, "You're choosing this one"); }
       want = resp.answer;
@@ -679,7 +702,43 @@
     addLog(ok ? "filled" : "left", el, question, ok ? want : `Wanted “${want}” — couldn't select it`, source);
   }
 
+  async function flushPending() {
+    const items = state.pending.splice(0);
+    if (items.length === 0) return;
+    if (!IS_TOP) return;
+    const answers = await prompt({ type: "batch", title: `${items.length} question${items.length > 1 ? "s" : ""} I couldn't answer`, items });
+    if (answers.manual) { items.forEach((it) => state.manual.add(it.el)); return; }
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const a = answers.values?.[i];
+      if (!a || !a.answer) { addLog("skipped", it.el, it.label, "Skipped"); continue; }
+      const ok = await applyAnswer(it.el, a.answer, { isCustom: it.isCustom, radios: it.radios });
+      if (ok) state.filled.add(it.el);
+      addLog(ok ? "filled" : "left", it.el, it.label, ok ? a.answer : `Couldn't set “${a.answer}”`, "you");
+      if (a.remember) { const key = answerKey(it.question); state.answers[key] = a.answer; send({ type: "SAVE_ANSWER", key, answer: a.answer }); }
+    }
+  }
+
+  function looksLikeWorkday() {
+    return state.ats === "workday" || !!document.querySelector('[data-automation-id="workExperienceSection"], [data-automation-id="educationSection"], [data-automation-id="bottom-navigation-next-button"], [data-automation-id="legalNoticeAcceptButton"], [data-automation-id="autofillWithResume"]');
+  }
+
+  function ensureWorkday() {
+    if (state.wd || !window.AutopilotWorkday || !looksLikeWorkday()) return;
+    state.wd = window.AutopilotWorkday.install({ sleep, norm, textOf, isVisible, typeInto, setNativeValue, addLog, highlight, setStatus, setStatusQuiet: setStatus, fmtMonthYear: R.fmtMonthYear, markSeen: (el) => state.seen.add(el) });
+  }
+
   async function fillPage() {
+    ensureWorkday();
+    if (state.wd && state.wd.isExperiencePage()) {
+      try {
+        await state.wd.run(state.profile, { setFile, resumeName: () => state.resume?.name || "resume" });
+      } catch (err) {
+        addLog("left", document.body, "Workday experience page", "Error: " + (err?.message || err));
+      }
+      if (state.mode !== "running") return false;
+    }
+    state.deferring = true;
     const els = candidates();
     for (const el of els) {
       if (state.mode !== "running") return false;
@@ -690,6 +749,8 @@
       }
       await sleep(150);
     }
+    state.deferring = false;
+    await flushPending();
     return els.length > 0;
   }
 
@@ -917,12 +978,15 @@
       }
 
       // Required fields still empty → ask, one at a time.
+      state.deferring = true;
       for (const el of emptyRequiredFields()) {
         if (state.mode !== "running") return;
         if (state.filled.has(el) || state.manual.has(el)) continue;
         state.seen.delete(el);
         await processElement(el);
       }
+      state.deferring = false;
+      await flushPending();
 
       if (state.mode !== "running") return;
       const submit = findSubmitButton();
@@ -1066,6 +1130,9 @@
         .btn:disabled { opacity: .45; cursor: not-allowed; }
         label.chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4a4a48; cursor: pointer; margin: 4px 0 10px; }
         .hint { font-size: 11.5px; color: #8a8985; margin-top: 8px; }
+        .bq-list { max-height: 44vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+        .bq-q { font-weight: 500; margin-bottom: 4px; line-height: 1.35; }
+        .bq .inp { margin-bottom: 0; }
         .log { overflow-y: auto; max-height: 180px; }
         .lrow { display: flex; align-items: flex-start; gap: 8px; padding: 6px 14px; border-bottom: 1px solid #f3f2ee; cursor: pointer; }
         .lrow:hover { background: #faf9f6; }
@@ -1171,6 +1238,18 @@
         inner = `<h3>${esc(spec.title)}</h3><p>${esc(spec.question)}</p>
           <div class="row"><button class="btn primary" data-act="submit">Submit application</button><button class="btn" data-act="review">Let me review first</button></div>`;
         break;
+      case "batch": {
+        const rows = spec.items.map((it, i) => {
+          const control = it.options && it.options.length
+            ? `<select class="inp" data-i="${i}"><option value="">— skip —</option>${it.options.slice(0, 60).map((o) => `<option>${esc(o)}</option>`).join("")}</select>`
+            : `<textarea class="inp" data-i="${i}" rows="2" placeholder="Leave blank to skip"></textarea>`;
+          return `<div class="bq"><div class="bq-q">${i + 1}. ${esc(it.question)}</div>${control}</div>`;
+        }).join("");
+        inner = `<h3>${esc(spec.title)}</h3><p>Answer what you can, then Apply. Anything left blank is skipped.</p><div class="bq-list">${rows}</div>
+          <label class="chk"><input type="checkbox" data-field="remember" checked> Remember these answers for other applications</label>
+          <div class="row"><button class="btn primary" data-act="batch">Apply answers</button><button class="btn" data-act="manual">I'll do them on the page</button></div>`;
+        break;
+      }
       case "info":
         inner = `<h3>${esc(spec.title)}</h3><p>${esc(spec.question)}</p>
           <div class="row"><button class="btn primary" data-act="ok">${esc(spec.okLabel || "Continue")}</button><button class="btn" data-act="manual">I'll handle it</button></div>`;
@@ -1284,6 +1363,12 @@
       case "submit":
         resolvePrompt({ submit: true });
         break;
+      case "batch": {
+        const remember = field("remember")?.checked;
+        const values = Array.from(ui.body.querySelectorAll("[data-i]")).map((c) => ({ answer: (c.value || "").trim(), remember }));
+        resolvePrompt({ values });
+        break;
+      }
       case "review":
         resolvePrompt({ submit: false });
         setMode("manual");
@@ -1378,6 +1463,7 @@
       return;
     }
     if (state.profile && !state.profile.eeo) state.profile.eeo = {};
+    ensureWorkday();
     setMode("running");
     if (IS_TOP) {
       window.addEventListener("message", (e) => {

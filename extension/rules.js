@@ -19,6 +19,13 @@
     return null;
   };
 
+  // First Monday-ish of next June: a safe "available to start" for a summer internship.
+  const nextSummerStart = () => {
+    const d = new Date();
+    const year = d.getMonth() < 5 ? d.getFullYear() : d.getFullYear() + 1;
+    return `06/15/${year}`;
+  };
+
   const today = () => {
     const d = new Date();
     return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
@@ -95,6 +102,7 @@
     { key: "gradYearSelect", kind: "select", test: /graduation year|grad year|year of graduation|expected graduation/, value: (p) => (p.gradMonthYear || "").split("/")[1] || "" },
     { key: "howHeard", kind: "select", test: /how did you (hear|find|learn)|hear about|^source|referral source/, value: (p) => p.howHeard || "Job board", alt: () => "Other" },
     { key: "summary", kind: "textarea", test: /summary|about you|about yourself|tell us|why (do you want|are you interested)|why .* (company|role)|additional information|anything else|comments|cover letter/, value: (p) => p.summary, ai: true },
+    { key: "availableDate", kind: "date", test: /available (to )?start|availability date|earliest (start|available)|when (can|could|are you able to) (you )?start|desired start|preferred start|start date.*(available|internship)/, value: () => nextSummerStart() },
     { key: "today", kind: "date", test: /today'?s date|^date\*?$|date signed|signature date|^date:?$/, value: () => today() },
 
     // --- Consent boxes (ticked because you told Autopilot to take over the page) ---
@@ -137,6 +145,63 @@
       Decline: [/decline|prefer not|do not wish|don'?t wish|do not want|don'?t want|choose not|not to (answer|say|disclose)|not disclose|rather not/],
     },
   };
+
+  // Default answers for common yes/no screening questions. Returns "Yes", "No" or null.
+  const YES_RE = /willing|able to|available|can you|comply|agree|accept|consent|confirm|understand|certif|acknowledg|authori[sz]ed|eligible|legally|background check|drug|commute|on-?site|in[- ]?person|hybrid|in the office|relocat|travel|full[- ]time|part[- ]time|hours per week|\b(10|20|30|40) hours|start (on|by|in)|summer|internship|student|currently (enrolled|pursuing|a student)|graduat|at least 18|over 18|18 years|read and|reviewed|true and (correct|accurate)|accurate/i;
+  // Questions about criminal history, terminations, clearances and the like are deliberately NOT here: those always go to you.
+  const NO_RE = /non-?compete|bound by|related to (an |any |a )?(employee|anyone|someone|current)|relative|family member|currently employed (by|with|at)|currently work (for|at)|employee of|government official|conflict of interest|require.*sponsorship|visa|h-?1b|previously (applied|worked|employed)|former employee|ever (been employed|worked)|do you (own|hold)|agency|recruiter|third party/i;
+  function guessYesNo(question) {
+    const q = (question || "").toLowerCase();
+    if (NO_RE.test(q)) return "No";
+    if (YES_RE.test(q)) return "Yes";
+    return null;
+  }
+
+  // Common multiple-choice screening questions with a safe default pick.
+  function guessChoice(question, options, profile) {
+    const q = (question || "").toLowerCase();
+    const opts = (options || []).map((o) => ({ raw: o, t: o.toLowerCase() }));
+    const pick = (re) => opts.find((o) => re.test(o.t))?.raw || null;
+    if (opts.length === 0) return null;
+    if (/years? of (relevant |professional |work )?experience|how many years/.test(q)) {
+      return pick(/^(0|less than|<|none|no experience|0 ?- ?1|0 ?- ?2|1 ?year|1 ?- ?2|under 1)/) || pick(/student|intern|entry/);
+    }
+    if (/(current|what) (year|level) (in|of) (school|study|college|university)|class (standing|level)|academic (year|level|standing)|year of study/.test(q) && profile?.gradMonthYear) {
+      const [mm, yyyy] = profile.gradMonthYear.split("/").map(Number);
+      const months = (yyyy - new Date().getFullYear()) * 12 + ((mm || 6) - (new Date().getMonth() + 1));
+      const level = months <= 12 ? /senior|4th|fourth|final/ : months <= 24 ? /junior|3rd|third/ : months <= 36 ? /sophomore|2nd|second/ : /freshman|1st|first/;
+      return pick(level) || pick(/undergrad/);
+    }
+    if (/student status|are you (currently )?(a|an) (student|undergraduate)|enrollment status|currently enrolled/.test(q)) {
+      return pick(/full[- ]?time student|currently enrolled|undergraduate|yes/);
+    }
+    if (/(highest|current) (level of )?(education|degree)|degree (you are )?(pursuing|working toward)/.test(q) && profile?.degreeLevel) {
+      const map = { "High School": /high school/, Associate: /associate/, "Bachelor's": /bachelor/, "Master's": /master/, PhD: /phd|doctor/ };
+      return pick(map[profile.degreeLevel] || /bachelor/);
+    }
+    if (/(preferred|preference|which) (office|location|site|city)|where would you (like|prefer) to work|location preference/.test(q)) {
+      const city = (profile?.city || "").toLowerCase();
+      const st = (profile?.state || "").toLowerCase();
+      const stName = (STATE_NAMES[profile?.state] || "").toLowerCase();
+      return (city && pick(new RegExp(city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))) || (stName && pick(new RegExp(`\\b${stName}\\b`))) || (st && pick(new RegExp(`\\b${st}\\b`))) || pick(/no preference|any|flexible|open to|all locations|remote/);
+    }
+    if (/(availab|start date|when can you start|earliest)/.test(q)) {
+      return pick(/summer|june|may|immediately|as soon|flexible|2027/);
+    }
+    if (/work (model|arrangement|setting)|remote|hybrid|on-?site/.test(q)) {
+      return pick(/no preference|any|flexible|open|hybrid|on-?site|in[- ]?office/);
+    }
+    if (/(shift|schedule) preference|hours per week|availability per week/.test(q)) {
+      return pick(/full[- ]?time|40|day|standard|flexible|any/);
+    }
+    if (/citizen|country of (residence|citizenship)|reside/.test(q) && profile?.country) {
+      return pick(new RegExp(profile.country.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))) || pick(/united states|^usa?$|u\.s\./);
+    }
+    if (/language/.test(q) && /proficien|fluen|speak/.test(q)) return pick(/english/);
+    if (/how (would you|do you) (prefer|like) to be contacted|contact method/.test(q)) return pick(/email/);
+    if (/(sms|text message)|receive.*(texts?|messages)/.test(q)) return pick(/^yes|agree|opt in/);
+    return null;
+  }
 
   function eeoKeyFor(text) {
     const t = text.toLowerCase();
@@ -184,5 +249,5 @@
     TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia",
   };
 
-  window.AutopilotRules = { RULES, EEO_RE, SKIP_RE, SUBMIT_RE, NEXT_RE, APPLY_RE, APPLY_AVOID_RE, COOKIE_RE, STATE_NAMES, fmtMonthYear, today, eeoKeyFor, eeoPick };
+  window.AutopilotRules = { RULES, EEO_RE, SKIP_RE, SUBMIT_RE, NEXT_RE, APPLY_RE, APPLY_AVOID_RE, COOKIE_RE, STATE_NAMES, fmtMonthYear, today, eeoKeyFor, eeoPick, guessYesNo, guessChoice };
 })();

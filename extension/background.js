@@ -214,7 +214,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "START" });
   } catch {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["rules.js", "content.js"] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["rules.js", "workday.js", "content.js"] });
   }
 });
 
