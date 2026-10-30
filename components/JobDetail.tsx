@@ -153,7 +153,7 @@ export default function JobDetail({
 
           <p className="text-xs text-muted mt-4 leading-relaxed">
             {extensionConnected
-              ? "Autopilot opens the application in a new tab and fills it from your profile. It stops before any demographic (EEO/disability) questions and never clicks Submit — you review and submit."
+              ? "Autopilot opens the application in a new tab and takes it over: dismisses cookie banners, clicks through Apply, fills every page from your profile, and pops up a card for anything it can't answer. It asks you before pressing Submit."
               : hasProfile
                 ? "The Chrome extension isn't connected, so this will open the application without autofill. Load the extension to enable it."
                 : "Upload your resume in the Profile tab to enable applying."}

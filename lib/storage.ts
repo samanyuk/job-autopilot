@@ -1,4 +1,4 @@
-import type { JobDescription, JobStatusEntry, Profile, ResumeFile } from "./types";
+import { DEFAULT_SETTINGS, type JobDescription, type JobStatusEntry, type Profile, type ResumeFile, type Settings } from "./types";
 
 const KEYS = {
   profile: "autopilot.profile",
@@ -6,6 +6,7 @@ const KEYS = {
   statuses: "autopilot.statuses",
   descriptions: "autopilot.descriptions",
   filters: "autopilot.filters",
+  settings: "autopilot.settings",
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -28,7 +29,13 @@ function write(key: string, value: unknown) {
 }
 
 export const storage = {
-  getProfile: () => read<Profile | null>(KEYS.profile, null),
+  getProfile: () => {
+    const p = read<Profile | null>(KEYS.profile, null);
+    if (p && !p.eeo) p.eeo = { gender: "", hispanic: "", race: "", veteran: "", disability: "" };
+    return p;
+  },
+  getSettings: () => ({ ...DEFAULT_SETTINGS, ...read<Partial<Settings>>(KEYS.settings, {}) }),
+  setSettings: (s: Settings) => write(KEYS.settings, s),
   setProfile: (p: Profile | null) => write(KEYS.profile, p),
   getResume: () => read<ResumeFile | null>(KEYS.resume, null),
   setResume: (r: ResumeFile | null) => write(KEYS.resume, r),

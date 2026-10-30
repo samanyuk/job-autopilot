@@ -5,11 +5,11 @@ import FilterPanel, { DEFAULT_FILTERS, type Filters } from "@/components/FilterP
 import JobCard from "@/components/JobCard";
 import JobDetail from "@/components/JobDetail";
 import ProfilePanel from "@/components/ProfilePanel";
-import { applyViaExtension, pingExtension, syncProfileToExtension } from "@/lib/extensionBridge";
+import { applyViaExtension, onExtensionResult, pingExtension, syncProfileToExtension } from "@/lib/extensionBridge";
 import { ageDays, ageLabel, isRemote } from "@/lib/jobs";
 import { scoreJob } from "@/lib/match";
 import { storage } from "@/lib/storage";
-import type { Ats, Job, JobDescription, JobStatus, JobStatusEntry, Profile, ResumeFile } from "@/lib/types";
+import { DEFAULT_SETTINGS, type Ats, type Job, type JobDescription, type JobStatus, type JobStatusEntry, type Profile, type ResumeFile, type Settings } from "@/lib/types";
 
 type View = "jobs" | "profile" | "applied";
 
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [resume, setResume] = useState<ResumeFile | null>(null);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [statuses, setStatuses] = useState<Record<string, JobStatusEntry>>({});
   const [descriptions, setDescriptions] = useState<Record<string, JobDescription>>({});
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -35,6 +36,7 @@ export default function Dashboard() {
   useEffect(() => {
     setProfile(storage.getProfile());
     setResume(storage.getResume());
+    setSettings(storage.getSettings());
     setStatuses(storage.getStatuses());
     setDescriptions(storage.getDescriptions());
     setFilters(storage.getFilters(DEFAULT_FILTERS));
@@ -58,8 +60,21 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (extVersion && hydrated) syncProfileToExtension(profile, resume);
-  }, [extVersion, profile, resume, hydrated]);
+    if (extVersion && hydrated) syncProfileToExtension(profile, resume, settings);
+  }, [extVersion, profile, resume, settings, hydrated]);
+
+  // ---- outcomes reported by the extension (e.g. submitted) ----
+  useEffect(() => {
+    return onExtensionResult((jobId, status) => {
+      setStatuses((prev) => {
+        const existing = prev[jobId];
+        if (!existing) return prev;
+        const next = { ...prev, [jobId]: { ...existing, status, at: Date.now() } };
+        storage.setStatuses(next);
+        return next;
+      });
+    });
+  }, []);
 
   // ---- load jobs ----
   useEffect(() => {
@@ -168,7 +183,7 @@ export default function Dashboard() {
   const onApply = async (job: Job) => {
     if (!profile) return;
     setApplying(true);
-    const handled = await applyViaExtension(job, profile, resume);
+    const handled = await applyViaExtension(job, profile, resume, settings);
     if (!handled) window.open(job.url, "_blank", "noopener");
     mark(job, "applied");
     setApplying(false);
@@ -181,9 +196,13 @@ export default function Dashboard() {
     storage.setProfile(p);
     storage.setResume(r);
   };
+  const onSettingsChange = (s: Settings) => {
+    setSettings(s);
+    storage.setSettings(s);
+  };
 
   const appliedList = Object.values(statuses).sort((a, b) => b.at - a.at);
-  const appliedCount = appliedList.filter((s) => s.status === "applied").length;
+  const appliedCount = appliedList.filter((s) => s.status === "applied" || s.status === "submitted").length;
 
   return (
     <div className="min-h-screen">
@@ -293,19 +312,21 @@ export default function Dashboard() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight mb-1">Your profile</h1>
             <p className="text-sm text-muted mb-6">Everything here stays in this browser. The extension reads it to fill applications.</p>
-            <ProfilePanel profile={profile} resume={resume} onChange={onProfileChange} />
+            <ProfilePanel profile={profile} resume={resume} settings={settings} onChange={onProfileChange} onSettingsChange={onSettingsChange} />
           </div>
         )}
 
         {view === "applied" && (
           <div className="max-w-3xl">
             <h1 className="text-2xl font-semibold tracking-tight mb-1">Applied &amp; skipped</h1>
-            <p className="text-sm text-muted mb-6">Roles you&apos;ve acted on. Undo anything that was marked by mistake.</p>
+            <p className="text-sm text-muted mb-6">
+              <strong>Applied</strong> = opened with Autopilot; <strong>Submitted</strong> = the extension saw the confirmation page. Undo anything marked by mistake.
+            </p>
             {appliedList.length === 0 && <div className="card p-10 text-center text-sm text-muted">Nothing yet — apply to something from the Jobs tab.</div>}
             <div className="flex flex-col gap-2">
               {appliedList.map((s) => (
                 <div key={s.jobId} className="card px-4 py-3 flex items-center gap-4">
-                  <span className="tag capitalize w-16 justify-center">{s.status}</span>
+                  <span className="tag capitalize w-20 justify-center" style={s.status === "submitted" ? { background: "hsl(120 45% 93%)", color: "hsl(140 50% 25%)" } : undefined}>{s.status}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{s.company} — {s.title}</p>
                     <p className="text-xs text-muted">{new Date(s.at).toLocaleString()}</p>

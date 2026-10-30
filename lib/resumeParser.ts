@@ -30,6 +30,7 @@ export function emptyProfile(): Profile {
     degreeLevel: "Bachelor's",
     howHeard: "Job board",
     rawText: "",
+    eeo: { gender: "", hispanic: "", race: "", veteran: "", disability: "" },
   };
 }
 

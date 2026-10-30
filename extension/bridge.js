@@ -11,6 +11,7 @@
     APPLY: "AUTOPILOT_APPLY",
     SYNC: "AUTOPILOT_SYNC_PROFILE",
     ACK: "AUTOPILOT_ACK",
+    RESULT: "AUTOPILOT_RESULT",
   };
 
   function send(msg) {
@@ -26,27 +27,33 @@
     });
   }
 
+  function announce(res) {
+    if (!res.ok) return;
+    window.postMessage({ type: T.READY, version: res.version }, "*");
+    for (const r of res.results || []) window.postMessage({ type: T.RESULT, ...r }, "*");
+  }
+
   window.addEventListener("message", async (e) => {
     if (e.source !== window || !e.data || typeof e.data.type !== "string") return;
     switch (e.data.type) {
-      case T.PING: {
-        const res = await send({ type: "PING" });
-        if (res.ok) window.postMessage({ type: T.READY, version: res.version }, "*");
+      case T.PING:
+        announce(await send({ type: "PING" }));
         break;
-      }
       case T.SYNC:
-        await send({ type: "SYNC_PROFILE", profile: e.data.profile, resume: e.data.resume });
+        await send({ type: "SYNC_PROFILE", profile: e.data.profile, resume: e.data.resume, settings: e.data.settings });
         break;
       case T.APPLY: {
-        const res = await send({ type: "APPLY", job: e.data.job, profile: e.data.profile, resume: e.data.resume });
+        const res = await send({ type: "APPLY", job: e.data.job, profile: e.data.profile, resume: e.data.resume, settings: e.data.settings });
         if (res.ok) window.postMessage({ type: T.ACK, jobId: e.data.job.id }, "*");
         break;
       }
     }
   });
 
-  // Announce ourselves once so the dashboard flips to "connected" immediately.
-  send({ type: "PING" }).then((res) => {
-    if (res.ok) window.postMessage({ type: T.READY, version: res.version }, "*");
+  // Outcomes pushed from the background while the dashboard is open.
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === "RESULT") window.postMessage({ type: T.RESULT, jobId: msg.jobId, status: msg.status, note: msg.note }, "*");
   });
+
+  send({ type: "PING" }).then(announce);
 })();

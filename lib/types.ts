@@ -73,7 +73,43 @@ export interface Profile {
   degreeLevel: "High School" | "Associate" | "Bachelor's" | "Master's" | "PhD" | "";
   howHeard: string;
   rawText: string;
+  eeo: Eeo;
 }
+
+/** Voluntary self-identification answers. Canonical values; the extension maps them to each form's wording. */
+export interface Eeo {
+  gender: "" | "Male" | "Female" | "Non-binary" | "Decline";
+  hispanic: "" | "Yes" | "No" | "Decline";
+  race:
+    | ""
+    | "American Indian or Alaska Native"
+    | "Asian"
+    | "Black or African American"
+    | "Native Hawaiian or Other Pacific Islander"
+    | "White"
+    | "Two or More Races"
+    | "Decline";
+  veteran: "" | "Not a veteran" | "Veteran" | "Decline";
+  disability: "" | "Yes" | "No" | "Decline";
+}
+
+export interface Settings {
+  apiKey: string; // Claude API key, used by the extension for open-ended questions
+  model: string;
+  accountPassword: string; // used to sign up / sign in on Workday-style per-company accounts
+  acceptCookies: boolean;
+  fillEeo: boolean;
+  autoAdvance: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = {
+  apiKey: "",
+  model: "claude-haiku-5-5",
+  accountPassword: "",
+  acceptCookies: true,
+  fillEeo: true,
+  autoAdvance: true,
+};
 
 export interface ResumeFile {
   name: string;
@@ -99,7 +135,7 @@ export interface ScoreBreakdown {
   hasDescription: boolean;
 }
 
-export type JobStatus = "applied" | "skipped" | "saved";
+export type JobStatus = "applied" | "submitted" | "skipped" | "saved";
 
 export interface JobStatusEntry {
   status: JobStatus;

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Test Application — Acme Corp</title>
+  <title>Software Engineering Intern — Acme Corp</title>
   <style>
     body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 640px; margin: 40px auto; color: #222; }
     label { display: block; font-size: 13px; margin: 14px 0 4px; font-weight: 600; }
@@ -15,22 +15,37 @@
     button.submit { background: #333; color: #fff; }
     h1 { font-size: 22px; }
     .hint { font-size: 12px; color: #777; }
+    #cookie { position: fixed; bottom: 0; left: 0; right: 0; background: #222; color: #fff; padding: 16px; display: flex; gap: 12px; align-items: center; justify-content: center; }
+    #cookie button { margin: 0; background: #fff; }
+    .hidden { display: none; }
+    .error { color: #b00; font-size: 12px; }
   </style>
 </head>
 <body>
-  <h1>Software Engineering Intern — Summer 2027</h1>
-  <p class="hint">A fake application form for testing Autopilot. Nothing here is sent anywhere.</p>
-  <form onsubmit="event.preventDefault(); alert('Submitted (not really).')">
+  <div id="cookie">We use cookies to improve your experience. <button type="button" onclick="document.getElementById('cookie').remove()">Accept all cookies</button></div>
+
+  <div id="posting">
+    <h1>Software Engineering Intern — Summer 2027</h1>
+    <p class="hint">A fake job posting + application for testing Autopilot. Nothing here is sent anywhere.</p>
+    <p>Acme Corp is looking for an intern to work on our platform team. Requirements: pursuing a BS in Computer Science, experience with Python or TypeScript, familiarity with Git.</p>
+    <button type="button" id="apply" onclick="document.getElementById('posting').classList.add('hidden'); document.getElementById('app').classList.remove('hidden')">Apply</button>
+  </div>
+
+  <div id="app" class="hidden">
+  <h1>Application — Software Engineering Intern</h1>
+  <form id="form" onsubmit="event.preventDefault(); if (!document.getElementById('why').value) { document.getElementById('err').textContent = 'Please tell us why you want to work at Acme.'; return; } document.getElementById('app').classList.add('hidden'); document.getElementById('thanks').classList.remove('hidden');">
     <label for="first_name">First Name *</label>
-    <input id="first_name" name="first_name" />
+    <input id="first_name" name="first_name" required />
     <label for="last_name">Last Name *</label>
-    <input id="last_name" name="last_name" />
+    <input id="last_name" name="last_name" required />
     <label for="email">Email *</label>
-    <input id="email" name="email" type="email" />
+    <input id="email" name="email" type="email" required />
     <label for="phone">Phone</label>
     <input id="phone" name="phone" />
     <label for="resume">Resume/CV *</label>
-    <input id="resume" name="resume" type="file" />
+    <input id="resume" name="resume" type="file" style="display:none" />
+    <button type="button" onclick="document.getElementById('resume').click()">Attach resume</button>
+    <span id="resume_name" class="hint"></span>
     <label for="linkedin">LinkedIn Profile</label>
     <input id="linkedin" name="urls[LinkedIn]" />
     <label for="website">Website</label>
@@ -79,6 +94,12 @@
       <label><input type="radio" name="q_prev" value="1" /> Yes</label>
       <label><input type="radio" name="q_prev" value="0" /> No</label>
     </fieldset>
+    <fieldset>
+      <legend>Which office would you prefer? *</legend>
+      <label><input type="radio" name="q_office" value="sf" /> San Francisco</label>
+      <label><input type="radio" name="q_office" value="nyc" /> New York</label>
+      <label><input type="radio" name="q_office" value="remote" /> Remote</label>
+    </fieldset>
 
     <label for="hear">How did you hear about this job?</label>
     <select id="hear" name="source">
@@ -89,8 +110,9 @@
       <option>Other</option>
     </select>
 
-    <label for="why">Why do you want to work at Acme?</label>
-    <textarea id="why" name="why" rows="3"></textarea>
+    <label for="why">Why do you want to work at Acme? *</label>
+    <textarea id="why" name="why" rows="3" required></textarea>
+    <div id="err" class="error"></div>
 
     <label for="salary">Desired salary</label>
     <input id="salary" name="salary" />
@@ -102,16 +124,39 @@
       <label><input type="radio" name="eeo_gender" /> Decline to self-identify</label>
     </fieldset>
     <label for="race">Race / Ethnicity</label>
-    <select id="race" name="eeo_race"><option value="">Select…</option><option>Decline to self-identify</option></select>
+    <select id="race" name="eeo_race">
+      <option value="">Select…</option>
+      <option>Hispanic or Latino</option>
+      <option>White (Not Hispanic or Latino)</option>
+      <option>Black or African American (Not Hispanic or Latino)</option>
+      <option>Asian (Not Hispanic or Latino)</option>
+      <option>Two or More Races (Not Hispanic or Latino)</option>
+      <option>Decline to self-identify</option>
+    </select>
+    <fieldset>
+      <legend>Veteran status</legend>
+      <label><input type="radio" name="eeo_vet" /> I am not a protected veteran</label>
+      <label><input type="radio" name="eeo_vet" /> I identify as one or more of the classifications of a protected veteran</label>
+      <label><input type="radio" name="eeo_vet" /> I don't wish to answer</label>
+    </fieldset>
     <fieldset>
       <legend>Disability status</legend>
-      <label><input type="radio" name="eeo_dis" /> Yes</label>
-      <label><input type="radio" name="eeo_dis" /> No</label>
-      <label><input type="radio" name="eeo_dis" /> Prefer not to say</label>
+      <label><input type="radio" name="eeo_dis" /> Yes, I have a disability</label>
+      <label><input type="radio" name="eeo_dis" /> No, I do not have a disability</label>
+      <label><input type="radio" name="eeo_dis" /> I do not want to answer</label>
     </fieldset>
+    <label><input type="checkbox" name="agree" style="width:auto" /> I certify that the information provided is accurate and complete.</label>
 
-    <button type="button">Next</button>
     <button type="submit" class="submit">Submit application</button>
   </form>
+  </div>
+
+  <div id="thanks" class="hidden">
+    <h1>Thank you for applying!</h1>
+    <p>Your application has been submitted. We'll be in touch.</p>
+  </div>
+  <script>
+    document.getElementById('resume').addEventListener('change', (e) => { document.getElementById('resume_name').textContent = e.target.files[0]?.name || ''; });
+  </script>
 </body>
 </html>
